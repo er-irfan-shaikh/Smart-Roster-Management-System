@@ -1,0 +1,3220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataStraw — Smart Roster Management System</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom Scrollbars for Matrix Tables */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    /* Sticky column shadow in 30-day roster table */
+    .sticky-col-left {
+      position: sticky;
+      left: 0;
+      z-index: 20;
+      background-color: inherit;
+      box-shadow: 2px 0 5px -2px rgba(15, 23, 42, 0.12);
+    }
+    .roster-cell {
+      transition: all 0.12s ease;
+    }
+    .roster-cell:hover {
+      transform: scale(1.08);
+      z-index: 15;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+    }
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+      50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25); }
+    }
+    .conflict-pulse {
+      animation: pulse-border 1.8s infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+
+  <!-- TOP NAVIGATION & BRAND HEADER -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-md">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand Identity -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-inner">
+          <i class="fa-solid fa-calendar-check text-white text-lg"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold tracking-tight text-white">DataStraw OpsEngine</h1>
+            <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">v2.4 Enterprise</span>
+          </div>
+          <p class="text-xs text-slate-400">Multi-Brand D2C Operations Roster, Coverage & Conflict Engine</p>
+        </div>
+      </div>
+
+      <!-- Main Workspace Navigation Tabs -->
+      <nav class="flex items-center gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+        <button onclick="switchMainTab('roster')" id="mainTab-roster" class="main-tab-btn px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 bg-indigo-600 text-white shadow">
+          <i class="fa-solid fa-table-cells"></i> Roster Workspace
+        </button>
+        <button onclick="switchMainTab('conflicts')" id="mainTab-conflicts" class="main-tab-btn px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/60">
+          <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+          <span>Conflict Validator</span>
+          <span id="navConflictBadge" class="px-1.5 py-0.2 rounded-full text-[11px] bg-rose-500 text-white font-bold">0</span>
+        </button>
+        <button onclick="switchMainTab('database')" id="mainTab-database" class="main-tab-btn px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/60">
+          <i class="fa-solid fa-database"></i> Entities & Rules CRUD
+        </button>
+        <button onclick="switchMainTab('architecture')" id="mainTab-architecture" class="main-tab-btn px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/60">
+          <i class="fa-solid fa-code"></i> SQL, Architecture & README
+        </button>
+      </nav>
+
+      <!-- Action Toolbar -->
+      <div class="flex items-center gap-2">
+        <button onclick="exportRosterCSV()" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-sm" title="Export full monthly schedule for Excel / Power BI">
+          <i class="fa-solid fa-file-csv"></i> Export CSV (Excel/BI)
+        </button>
+        <button onclick="resetToDefaultDataset()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5" title="Reset sample data to initial assessment state">
+          <i class="fa-solid fa-rotate-left"></i> Reset Data
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- EXECUTIVE KPI & CONTROL BAR -->
+  <section class="bg-white border-b border-slate-200 shadow-sm">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3.5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+        
+        <!-- KPI Cards (7 cols) -->
+        <div class="lg:col-span-7 grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          <!-- KPI 1: Interactive Planning Month Selector (Section 3C) -->
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>PLANNING MONTH</span>
+              <i class="fa-regular fa-calendar text-indigo-500"></i>
+            </div>
+            <select id="monthSelector" onchange="changePlanningMonth(this.value)" class="mt-0.5 w-full bg-transparent text-xs font-extrabold text-slate-900 focus:outline-none cursor-pointer">
+              <option value="2026-11" selected>Nov 2026 (30d)</option>
+              <option value="2026-12">Dec 2026 (31d)</option>
+              <option value="2027-01">Jan 2027 (31d)</option>
+            </select>
+            <div class="text-[11px] text-slate-500"><span id="kpiHolidayCount">3</span> Public Holidays</div>
+          </div>
+
+          <!-- KPI 2: Team Size -->
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>TEAM & PODS</span>
+              <i class="fa-solid fa-users text-blue-500"></i>
+            </div>
+            <div class="text-sm font-bold text-slate-900 mt-0.5"><span id="kpiEmpCount">34</span> Employees</div>
+            <div class="text-[11px] text-slate-500"><span id="kpiPodCount">4</span> Operational Pods</div>
+          </div>
+
+          <!-- KPI 3: Brands Split -->
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+            <div class="text-[11px] font-medium text-slate-500 flex items-center justify-between">
+              <span>D2C BRANDS (80/20)</span>
+              <i class="fa-solid fa-store text-violet-500"></i>
+            </div>
+            <div class="text-sm font-bold text-slate-900 mt-0.5"><span id="kpiBrandCount">20</span> Active Brands</div>
+            <div class="text-[11px] text-slate-500"><span id="kpiBrandSplit">16 Single / 4 Multi</span></div>
+          </div>
+
+          <!-- KPI 4: Coverage Health -->
+          <div class="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200" id="kpiHealthCard">
+            <div class="text-[11px] font-medium text-emerald-700 flex items-center justify-between">
+              <span>COVERAGE SLA</span>
+              <i class="fa-solid fa-shield-halved text-emerald-600"></i>
+            </div>
+            <div class="text-base font-extrabold text-emerald-800 mt-0.5" id="kpiCoveragePct">100%</div>
+            <div class="text-[11px] text-emerald-600" id="kpiCoverageSub">All Brand Days Met</div>
+          </div>
+
+          <!-- KPI 5: Conflicts & Warnings -->
+          <div onclick="switchMainTab('conflicts')" class="p-2.5 rounded-xl bg-rose-50/70 border border-rose-200 cursor-pointer hover:bg-rose-100/60 transition">
+            <div class="text-[11px] font-medium text-rose-700 flex items-center justify-between">
+              <span>ACTIVE ALERTS</span>
+              <i class="fa-solid fa-bell text-rose-600"></i>
+            </div>
+            <div class="flex items-baseline gap-2 mt-0.5">
+              <span class="text-sm font-extrabold text-rose-700"><span id="kpiHardConflicts">0</span> Hard</span>
+              <span class="text-xs font-semibold text-amber-700"><span id="kpiSoftWarnings">0</span> Soft</span>
+            </div>
+            <div class="text-[10px] text-rose-600 underline">Click to resolve &rarr;</div>
+          </div>
+        </div>
+
+        <!-- Primary Controls & Live Change Scenarios (5 cols) -->
+        <div class="lg:col-span-5 flex flex-wrap items-center justify-end gap-2">
+          <!-- Auto-backup toggle -->
+          <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-medium text-slate-700 cursor-pointer select-none" title="When checked, Pod Leads / Float Specialists automatically cover Single-Brand owners' Weekly Offs & Planned Leaves">
+            <input type="checkbox" id="autoAssignBackupsToggle" checked class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+            <span>Auto-Assign Pod Float Backups</span>
+          </label>
+
+          <!-- Generate Roster Button -->
+          <button onclick="generateMonthlyRoster()" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm transition flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Auto-Generate Roster</span>
+          </button>
+
+          <!-- Simulate Change Scenario Dropdown (Requirement 3F) -->
+          <div class="relative inline-block text-left">
+            <button onclick="toggleScenarioMenu()" class="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt"></i>
+              <span>Simulate Change (Sec 3F)</span>
+              <i class="fa-solid fa-chevron-down text-[10px] ml-0.5"></i>
+            </button>
+            <div id="scenarioMenu" class="hidden absolute right-0 mt-2 w-96 rounded-xl bg-white shadow-xl border border-slate-200 z-50 p-2">
+              <div class="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                Live Post-Generation Change Scenarios (Sec 3F)
+              </div>
+              <button onclick="runScenario('SINGLE_BRAND_LEAVE')" class="w-full text-left p-2.5 rounded-lg hover:bg-rose-50 transition flex items-start gap-2.5 mt-1">
+                <div class="w-7 h-7 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">1</div>
+                <div>
+                  <div class="text-xs font-bold text-slate-900">Single-Resource Brand Emergency Leave</div>
+                  <p class="text-[11px] text-slate-500 leading-snug mt-0.5">Marks Rohini Verma (sole owner of 365-day brand <b>AuraSkin</b>) on unplanned leave on Day 12–13. Flags 0/1 gap across CS, ACC, NDR &amp; recommends Pod Beta backup.</p>
+                </div>
+              </button>
+              <button onclick="runScenario('MULTI_BRAND_PARTIAL')" class="w-full text-left p-2.5 rounded-lg hover:bg-amber-50 transition flex items-start gap-2.5 mt-1">
+                <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">2</div>
+                <div>
+                  <div class="text-xs font-bold text-slate-900">Multi-Resource Brand Partial Absence (1 of 3 Off)</div>
+                  <p class="text-[11px] text-slate-500 leading-snug mt-0.5">Marks Ishaan Khatri (1 of 3 specialists on <b>UrbanLoom</b>) on Leave (Day 18). Evaluates remaining team: NDR &amp; RET stay covered (1/1), CS drops to 1/2, ACC drops to 0/1.</p>
+                </div>
+              </button>
+              <button onclick="runScenario('SHARED_EMP_CASCADE')" class="w-full text-left p-2.5 rounded-lg hover:bg-purple-50 transition flex items-start gap-2.5 mt-1">
+                <div class="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">3</div>
+                <div>
+                  <div class="text-xs font-bold text-slate-900">Multi-Brand Employee Cascade Impact</div>
+                  <p class="text-[11px] text-slate-500 leading-snug mt-0.5">Marks Pranav Joshi (shared across <b>UrbanLoom</b> &amp; <b>KnitTheory</b>) on Leave (Day 19), demonstrating multi-brand conflict detection across accounts.</p>
+                </div>
+              </button>
+              <button onclick="runScenario('RULE_UPGRADE_365')" class="w-full text-left p-2.5 rounded-lg hover:bg-indigo-50 transition flex items-start gap-2.5 mt-1">
+                <div class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">4</div>
+                <div>
+                  <div class="text-xs font-bold text-slate-900">Brand Rule Upgrade to 365-Days Mid-Month</div>
+                  <p class="text-[11px] text-slate-500 leading-snug mt-0.5">Upgrades <b>ZenVeda</b> from Mon-Sat to 365-Day operations without rebuilding the roster, flagging new Sunday &amp; Holiday coverage gaps.</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Public Holiday Pill Bar -->
+      <div class="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-semibold text-slate-600 flex items-center gap-1.5">
+            <i class="fa-solid fa-champagne-glasses text-purple-600"></i> <span id="holidayBarLabel">Nov 2026</span> Public Holidays (Click day to toggle):
+          </span>
+          <div id="holidayPillsContainer" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+        <div class="flex items-center gap-3 text-[11px] text-slate-500">
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> WORK (Primary)</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-sky-500 inline-block"></span> BACKUP (Pod Float)</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-slate-300 inline-block"></span> WEEK_OFF</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-purple-500 inline-block"></span> HOLIDAY</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block"></span> LEAVE</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-teal-500 inline-block"></span> COMP_OFF</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-5">
+
+    <!-- ===================================================================== -->
+    <!-- TAB 1: ROSTER WORKSPACE (5 STAKEHOLDER VIEWS)                         -->
+    <!-- ===================================================================== -->
+    <div id="view-roster" class="space-y-4">
+      <!-- Stakeholder View Switcher Bar (Requirement 3E) -->
+      <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400 mr-2">Stakeholder View:</span>
+          <button onclick="switchStakeholderView('company')" id="subViewBtn-company" class="subview-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white transition">
+            <i class="fa-solid fa-building mr-1"></i> 1. Company-Wide (All Staff)
+          </button>
+          <button onclick="switchStakeholderView('pod')" id="subViewBtn-pod" class="subview-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+            <i class="fa-solid fa-people-group mr-1"></i> 2. Pod-Wise View
+          </button>
+          <button onclick="switchStakeholderView('brand')" id="subViewBtn-brand" class="subview-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+            <i class="fa-solid fa-tags mr-1"></i> 3. Brand-Wise Coverage &amp; Schedules
+          </button>
+          <button onclick="switchStakeholderView('process')" id="subViewBtn-process" class="subview-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+            <i class="fa-solid fa-gears mr-1"></i> 4. Process-Wise (CS/ACC/NDR/RET)
+          </button>
+          <button onclick="switchStakeholderView('employee')" id="subViewBtn-employee" class="subview-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+            <i class="fa-solid fa-user-clock mr-1"></i> 5. Employee Calendar
+          </button>
+        </div>
+
+        <!-- Contextual Filters for Active Sub-View -->
+        <div class="flex flex-wrap items-center gap-2" id="stakeholderFilterContainer">
+          <!-- Populated dynamically based on active stakeholder view -->
+        </div>
+      </div>
+
+      <!-- Alert Banner if Hard Conflicts exist -->
+      <div id="liveConflictBanner" class="hidden bg-rose-50 border border-rose-300 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <h3 class="text-xs font-bold text-rose-950" id="liveConflictBannerTitle">Critical Coverage Gaps Detected!</h3>
+            <p class="text-xs text-rose-700" id="liveConflictBannerDesc">One or more brands have unmet minimum process coverage on required working days.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="autoResolveAllGapsWithPodFloats()" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-sm">
+            <i class="fa-solid fa-user-shield mr-1"></i> 1-Click Auto-Assign Pod Backups
+          </button>
+          <button onclick="switchMainTab('conflicts')" class="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 text-xs font-semibold transition">
+            Inspect Conflict List &rarr;
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Container where the 5 Stakeholder Views render -->
+      <div id="stakeholderViewport" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 2: CONFLICT DETECTION & SMART RESOLUTION ENGINE (Sec 3D & 3F)     -->
+    <!-- ===================================================================== -->
+    <div id="view-conflicts" class="hidden space-y-5">
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-shield-virus text-indigo-600"></i>
+            Constraint Validation &amp; Conflict Resolution Center
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            The engine strictly separates <b>Hard Mandatory Constraints</b> (Client Operating Days, Minimum Process Staffing, Approved Leaves) from <b>Soft Preferences</b> (Preferred Weekly Off Day, Target Off Count).
+          </p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="autoResolveAllGapsWithPodFloats()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Resolve All Hard Gaps via Pod Floaters
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Hard Conflicts Column -->
+        <div class="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden flex flex-col">
+          <div class="p-4 bg-rose-50/80 border-b border-rose-200 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
+              <h3 class="text-sm font-bold text-rose-950">Mandatory Coverage Gaps &amp; Hard Conflicts</h3>
+            </div>
+            <span id="hardConflictCountPill" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-600 text-white">0</span>
+          </div>
+          <div id="hardConflictsList" class="p-4 space-y-3 flex-1 max-h-[600px] overflow-y-auto">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Soft Preference Warnings Column -->
+        <div class="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden flex flex-col">
+          <div class="p-4 bg-amber-50/80 border-b border-amber-200 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+              <h3 class="text-sm font-bold text-amber-950">Soft Preference Overrides &amp; Workload Notices</h3>
+            </div>
+            <span id="softWarningCountPill" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-slate-950">0</span>
+          </div>
+          <div id="softWarningsList" class="p-4 space-y-3 flex-1 max-h-[600px] overflow-y-auto">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 3: DATABASE & RULE CONFIGURATION CRUD (Sec 3A & 3B)               -->
+    <!-- ===================================================================== -->
+    <div id="view-database" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Add / Edit Brand & Granular Process Operating Calendar Rules (5 cols) -->
+        <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Configure D2C Brand &amp; Process Operating Rules</h3>
+              <p class="text-xs text-slate-500">Define brand defaults and per-process operating calendars &amp; minimum staffing (Sec 3B)</p>
+            </div>
+            <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">Granular Process Rules</span>
+          </div>
+
+          <form id="brandForm" onsubmit="saveBrandConfig(event)" class="space-y-3.5 text-xs">
+            <input type="hidden" id="editBrandId" value="">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Brand Name *</label>
+                <input type="text" id="brandNameInput" required placeholder="e.g. Glow Botanics" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Operational Pod *</label>
+                <select id="brandPodSelect" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Staffing Model</label>
+                <select id="brandTypeSelect" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  <option value="SINGLE">Single-Resource (Dedicated Owner)</option>
+                  <option value="MULTI">Multi-Resource (2-3 Specialists)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Default Brand Calendar</label>
+                <select id="brandCalendarSelect" onchange="syncProcessCalendarsWithBrandDefault(this.value)" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  <option value="365_DAYS">365 Days (Incl. Sun &amp; Holidays)</option>
+                  <option value="NO_PUBLIC_HOLIDAYS">Daily Except Public Holidays</option>
+                  <option value="MON_SAT_NO_HOLIDAYS">Mon-Sat (Sun &amp; Holidays Off)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Granular Per-Process Calendar & Min Staff Configuration (Requirement 3B) -->
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-800">Per-Process Operating Schedule &amp; Min Staffing:</span>
+                <span class="text-[10px] text-slate-500">0 Weekday Min = Process Inactive</span>
+              </div>
+              <div class="grid grid-cols-12 gap-1.5 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-200 pb-1">
+                <div class="col-span-2">Process</div>
+                <div class="col-span-6">Operating Calendar</div>
+                <div class="col-span-2 text-center">Wkday Min</div>
+                <div class="col-span-2 text-center">Sun/Hol Min</div>
+              </div>
+              <!-- CS Row -->
+              <div class="grid grid-cols-12 gap-1.5 items-center">
+                <div class="col-span-2 font-bold text-slate-800">CS</div>
+                <div class="col-span-6">
+                  <select id="procCalCS" class="w-full px-1.5 py-1 rounded border border-slate-300 text-[11px]">
+                    <option value="365_DAYS">365_DAYS</option>
+                    <option value="NO_PUBLIC_HOLIDAYS">NO_PUBLIC_HOLIDAYS</option>
+                    <option value="MON_SAT_NO_HOLIDAYS">MON_SAT_NO_HOLIDAYS</option>
+                  </select>
+                </div>
+                <div class="col-span-2"><input type="number" id="minStaffCS" min="0" max="5" value="1" class="w-full px-1.5 py-1 rounded border border-slate-300 text-center"></div>
+                <div class="col-span-2"><input type="number" id="minSunCS" min="0" max="5" value="1" class="w-full px-1.5 py-1 rounded border border-slate-300 text-center"></div>
+              </div>
+              <!-- ACC Row -->
+              <div class="grid grid-cols-12 gap-1.5 items-center">
+                <div class="col-span-2 font-bold text-slate-800">ACC</div>
+                <div class="col-span-6">
+                  <select id="procCalACC" class="w-full px-1.5 py-1 rounded border border-slate-300 text-[11px]">
+                    <option value="365_DAYS">365_DAYS</option>
+                    <option value="NO_PUBLIC_HOLIDAYS">NO_PUBLIC_HOLIDAYS</option>
+                    <option value="MON_SAT_NO_HOLIDAYS">MON_SAT_NO_HOLIDAYS</option>
+                  </select>
+                </div>
+                <div class="col-span-2"><input type="number" id="minStaffACC" min="0" max="5" value="1" class="w-full px-1.5 py-1 rounded border border-slate-300 text-center"></div>
+                <div class="col-span-2"><input type="number" id="minSunACC" min="0" max="5" value="1" class="w-full px-1.5 py-1 rounded border border-slate-300 text-center"></div>
+              </div>
+              <!-- NDR Row -->
+              <div class="grid grid-cols-12 gap-1.5 items-center">
+                <div class="col-span-2 font-bold text-slate-800">NDR</div>
+                <div class="col-span-6">
+                  <select id="procCalNDR" class="w-full px-1.5 py-1 rounded border border-slate-300 text-[11px]">
+                    <option value="365_DAYS">365_DAYS</option>
+                    <option value="NO_PUBLIC_HOLIDAYS">NO_PUBLIC_HOLIDAYS</option>
+                    <option value="MON_SAT_NO_HOLIDAYS">MON_SAT_NO_HOLIDAYS</option>
+                  </select>
+                </div>
+                <div class="col-span-2"><input type="number" id="minStaffNDR" min="0" max="5" value="1" class="w-full px-1.5 py-1 rounded border border-slate-300 text-center"></div>
+                <div class="col-span-2"><input type="number" id="minSunNDR" min="0" max="5" value="1" class="w-full px-1.5 py-1 rounded border border-slate-300 text-center"></div>
+              </div>
+              <!-- RET Row -->
+              <div class="grid grid-cols-12 gap-1.5 items-center">
+                <div class="col-span-2 font-bold text-slate-800">RET</div>
+                <div class="col-span-6">
+                  <select id="procCalRET" class="w-full px-1.5 py-1 rounded border border-slate-300 text-[11px]">
+                    <option value="365_DAYS">365_DAYS</option>
+                    <option value="NO_PUBLIC_HOLIDAYS">NO_PUBLIC_HOLIDAYS</option>
+                    <option value="MON_SAT_NO_HOLIDAYS" selected>MON_SAT_NO_HOLIDAYS</option>
+                  </select>
+                </div>
+                <div class="col-span-2"><input type="number" id="minStaffRET" min="0" max="5" value="0" class="w-full px-1.5 py-1 rounded border border-slate-300 text-center"></div>
+                <div class="col-span-2"><input type="number" id="minSunRET" min="0" max="5" value="0" class="w-full px-1.5 py-1 rounded border border-slate-300 text-center"></div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2">
+              <button type="button" onclick="resetBrandForm()" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-600 font-semibold hover:bg-slate-200">Clear</button>
+              <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-500 shadow-sm">
+                <i class="fa-solid fa-floppy-disk mr-1"></i> Save Brand &amp; Re-Validate
+              </button>
+            </div>
+          </form>
+
+          <!-- Add Operational Pod Quick Form -->
+          <div class="mt-4 pt-3 border-t border-slate-200">
+            <form onsubmit="addNewPodConfig(event)" class="flex flex-wrap items-end gap-2 text-xs">
+              <div class="flex-1 min-w-[140px]">
+                <label class="block text-[11px] font-bold text-slate-600 mb-0.5">New Pod Name</label>
+                <input type="text" id="newPodNameInput" required placeholder="e.g. Pod Epsilon (Luxury)" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300">
+              </div>
+              <div class="flex-1 min-w-[130px]">
+                <label class="block text-[11px] font-bold text-slate-600 mb-0.5">Pod Lead Name</label>
+                <input type="text" id="newPodLeadInput" required placeholder="e.g. Rajeev Nair" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300">
+              </div>
+              <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-semibold">
+                + Add Pod
+              </button>
+            </form>
+          </div>
+
+          <!-- Existing Brands List -->
+          <div class="mt-4 pt-3 border-t border-slate-200">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Active Brands Directory (<span id="crudBrandCount">20</span>)</h4>
+            <div id="crudBrandsList" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+
+        <!-- Add / Edit Employee, Multi-Brand Assignments & Leaves (7 cols) -->
+        <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">Manage Employees, Multi-Brand Allocations &amp; Leave Calendar</h3>
+              <p class="text-xs text-slate-500">Assign employees to 1 or multiple brands/processes, configure weekly offs, planned leaves &amp; comp-offs</p>
+            </div>
+            <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg">Multi-Brand Ready</span>
+          </div>
+
+          <form id="employeeForm" onsubmit="saveEmployeeConfig(event)" class="space-y-3 text-xs">
+            <input type="hidden" id="editEmpId" value="">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Employee Name *</label>
+                <input type="text" id="empNameInput" required placeholder="e.g. Siddharth Joshi" class="w-full px-3 py-2 rounded-lg border border-slate-300">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Role Type *</label>
+                <select id="empRoleSelect" class="w-full px-3 py-2 rounded-lg border border-slate-300">
+                  <option value="DEDICATED_OWNER">Dedicated Brand Owner</option>
+                  <option value="PROCESS_SPECIALIST">Multi-Brand Process Specialist</option>
+                  <option value="POD_FLOAT">Pod Float / Backup Specialist</option>
+                  <option value="POD_LEAD">Pod Lead (Supervisor + Backup)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Assigned Pod *</label>
+                <select id="empPodSelect" class="w-full px-3 py-2 rounded-lg border border-slate-300"></select>
+              </div>
+            </div>
+
+            <!-- Primary & Secondary Brand Assignments (Supports Shared Multi-Brand Employees) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div class="space-y-2">
+                <label class="block font-bold text-slate-700">1. Primary Brand &amp; Processes</label>
+                <select id="empBrandSelect" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"></select>
+                <input type="text" id="empProcessesInput" value="CS,ACC,NDR" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white" placeholder="Processes: e.g. CS,ACC,NDR">
+              </div>
+              <div class="space-y-2">
+                <label class="block font-bold text-slate-700">2. Secondary Brand &amp; Processes (Optional)</label>
+                <select id="empSecondBrandSelect" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white"></select>
+                <input type="text" id="empSecondProcessesInput" value="" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white" placeholder="Processes: e.g. NDR,RET">
+              </div>
+            </div>
+
+            <!-- Availability: Preferred Week Off, Planned Leaves, Approved Comp-Offs -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Preferred Weekly Off Day</label>
+                <select id="empWeekOffSelect" class="w-full px-3 py-2 rounded-lg border border-slate-300">
+                  <option value="0">Sunday</option>
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Planned Leave Days (comma-sep)</label>
+                <input type="text" id="empLeavesInput" placeholder="e.g. 12,13" class="w-full px-3 py-2 rounded-lg border border-slate-300">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Comp-Off Days (comma-sep)</label>
+                <input type="text" id="empCompOffsInput" placeholder="e.g. 19,25" class="w-full px-3 py-2 rounded-lg border border-slate-300">
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-1">
+              <button type="button" onclick="resetEmployeeForm()" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-600 font-semibold hover:bg-slate-200">Clear</button>
+              <button type="submit" class="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-sm">
+                <i class="fa-solid fa-user-plus mr-1"></i> Save Employee &amp; Re-Validate
+              </button>
+            </div>
+          </form>
+
+          <!-- Existing Employees Directory -->
+          <div class="mt-5 pt-4 border-t border-slate-200">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Team Roster Directory (<span id="crudEmpCount">34</span>)</h4>
+            <div id="crudEmployeesList" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 4: SQL SCHEMA, PYTHON/JS LOGIC & README INTERVIEW GUIDE (Sec 7-8) -->
+    <!-- ===================================================================== -->
+    <div id="view-architecture" class="hidden space-y-6">
+      <!-- Top Intro Banner -->
+      <div class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-6 rounded-2xl shadow-md">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
+              Candidate Technical Reference &amp; README Generator
+            </span>
+            <h2 class="text-xl font-bold mt-2">System Architecture, Relational SQL Model &amp; Section 8 Answers</h2>
+            <p class="text-xs text-slate-300 mt-1 max-w-3xl">
+              Built using your core stack (<b>JavaScript, HTML5, CSS/Tailwind, Relational SQL Modeling, Basic Python Algorithm Logic, and Excel/Power BI CSV Export</b>). Copy the README below directly into your GitHub repository!
+            </p>
+          </div>
+          <button onclick="copyReadmeToClipboard()" class="px-4 py-2.5 rounded-xl bg-white text-slate-900 hover:bg-indigo-50 text-xs font-bold shadow transition flex items-center gap-2">
+            <i class="fa-regular fa-copy"></i> Copy Full GitHub README.md
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- SQL Schema & Scheduling Algorithm Pseudocode (6 cols) -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-database text-indigo-600"></i>
+              1. Relational Database Schema (SQL DDL)
+            </h3>
+            <p class="text-xs text-slate-600 mb-3">
+              In interviews, explain that the app's in-memory state (`DB`) mirrors these exact 6 normalized SQL tables in PostgreSQL/MySQL:
+            </p>
+            <pre class="mono text-[11px] bg-slate-900 text-emerald-300 p-4 rounded-xl overflow-x-auto leading-relaxed">-- 1. Operational Pods & Pod Leads
+CREATE TABLE pods (
+    pod_id VARCHAR(20) PRIMARY KEY,
+    pod_name VARCHAR(100) NOT NULL,
+    pod_lead_name VARCHAR(100) NOT NULL
+);
+
+-- 2. D2C Client Brands (80% Single-Resource, 20% Multi-Resource)
+CREATE TABLE brands (
+    brand_id VARCHAR(20) PRIMARY KEY,
+    brand_name VARCHAR(100) NOT NULL,
+    pod_id VARCHAR(20) REFERENCES pods(pod_id),
+    staffing_model VARCHAR(15) CHECK (staffing_model IN ('SINGLE', 'MULTI')),
+    operating_calendar VARCHAR(30) NOT NULL
+    -- '365_DAYS' | 'NO_PUBLIC_HOLIDAYS' | 'MON_SAT_NO_HOLIDAYS'
+);
+
+-- 3. Brand Process Rules (Granular process calendars & minStaff)
+CREATE TABLE brand_process_rules (
+    brand_id VARCHAR(20) REFERENCES brands(brand_id),
+    process_code VARCHAR(10) CHECK (process_code IN ('CS','ACC','NDR','RET')),
+    operating_calendar VARCHAR(30) NOT NULL,
+    min_staff_weekday INT DEFAULT 1,
+    min_staff_sunday INT DEFAULT 1,
+    PRIMARY KEY (brand_id, process_code)
+);
+
+-- 4. Employees (Dedicated Owners, Specialists & Pod Floaters)
+CREATE TABLE employees (
+    emp_id VARCHAR(20) PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    role_type VARCHAR(30) NOT NULL,
+    pod_id VARCHAR(20) REFERENCES pods(pod_id),
+    preferred_week_off INT CHECK (preferred_week_off BETWEEN 0 AND 6)
+);
+
+-- 5. Many-to-Many Employee <-> Brand Process Assignments
+CREATE TABLE employee_assignments (
+    emp_id VARCHAR(20) REFERENCES employees(emp_id),
+    brand_id VARCHAR(20) REFERENCES brands(brand_id),
+    process_code VARCHAR(10),
+    is_primary BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (emp_id, brand_id, process_code)
+);
+
+-- 6. Monthly Roster Schedule Fact Table (Power BI / Excel Ready)
+CREATE TABLE monthly_roster (
+    roster_date DATE NOT NULL,
+    emp_id VARCHAR(20) REFERENCES employees(emp_id),
+    status VARCHAR(20) NOT NULL,
+    -- 'WORK' | 'BACKUP' | 'WEEK_OFF' | 'HOLIDAY' | 'LEAVE' | 'COMP_OFF'
+    covered_brand_id VARCHAR(20) NULL,
+    covered_processes VARCHAR(50) NULL,
+    PRIMARY KEY (roster_date, emp_id)
+);</pre>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2 mb-2">
+              <i class="fa-brands fa-python text-blue-600"></i>
+              2. Deterministic Roster Solver Logic (Python / JS)
+            </h3>
+            <p class="text-xs text-slate-600 mb-3">
+              How our two-pass heuristic scheduling engine generates rosters and resolves coverage gaps:
+            </p>
+            <pre class="mono text-[11px] bg-slate-900 text-sky-300 p-4 rounded-xl overflow-x-auto leading-relaxed">def generate_monthly_roster(month_days, brands, employees, holidays):
+    # PASS 1: Assign Primary Schedules (Respecting Hard Leaves & Calendars)
+    for day in month_days:
+        for emp in employees:
+            if day in emp.planned_leaves:
+                roster[emp.id][day] = "LEAVE"
+            elif day in emp.comp_offs:
+                roster[emp.id][day] = "COMP_OFF"
+            elif not emp.any_assigned_brand_operates_on(day, holidays):
+                # Brand is closed on Sunday or Public Holiday
+                roster[emp.id][day] = "HOLIDAY" if day in holidays else "WEEK_OFF"
+            elif day.weekday == emp.preferred_week_off:
+                roster[emp.id][day] = "WEEK_OFF"
+            else:
+                roster[emp.id][day] = "WORK"
+
+    # PASS 2: Validate Brand-Process Coverage & Assign Pod Backups
+    for day in month_days:
+        for brand in brands:
+            for proc in brand.active_processes(day, holidays):
+                active_staff = count_working_staff(brand, proc, day)
+                if active_staff < proc.min_staff(day):
+                    # Try 1: Override soft preferred week-off on multi-resource brand
+                    # Try 2: Assign available Pod Float / Pod Lead from same Pod
+                    backup_emp = find_available_pod_floater(brand.pod_id, proc, day)
+                    if backup_emp:
+                        roster[backup_emp.id][day] = f"BACKUP:{brand.id}"
+                    else:
+                        flag_hard_conflict(brand, proc, day, active_staff)</pre>
+          </div>
+        </div>
+
+        <!-- Section 8 Answers & Deployment Guide (6 cols) -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2 mb-3">
+              <i class="fa-solid fa-lightbulb text-amber-500"></i>
+              3. Answers to Section 8 ("Tell Us How You Think")
+            </h3>
+            <div class="space-y-3 text-xs text-slate-700 max-h-[540px] overflow-y-auto pr-2">
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="font-bold text-slate-900">Q1. How did you model employees, brands, processes, pods, and their relationships?</div>
+                <p class="mt-1 leading-relaxed">I used a relational data model with 4 core entities: <b>Pods</b> (1-to-many with Brands and Employees), <b>Brands</b> (each having process-level rules for CS, ACC, NDR, RET), <b>Employees</b> (categorized into Dedicated Owners, Process Specialists, and Pod Floaters/Leads), and a junction relationship <b>Employee-Brand-Process Assignments</b> so an employee can own all processes for 1 brand or specific processes across multiple brands.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="font-bold text-slate-900">Q2. How does your system generate a roster and determine whether it satisfies constraints?</div>
+                <p class="mt-1 leading-relaxed">It uses a deterministic <b>Two-Pass Constraint Solver</b>. Pass 1 assigns individual employee states based on hard non-availability (Planned Leaves, Comp-Offs), brand operating calendars (365-day, No-Holidays, Mon-Sat), and preferred weekly offs. Pass 2 evaluates daily coverage per `(brand, process, day)` against `minStaff` and either assigns cross-trained Pod Float backups or flags hard conflicts vs. soft preference warnings.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="font-bold text-slate-900">Q3. How did you handle single-resource brands (80%) vs. multi-employee brands (20%)?</div>
+                <p class="mt-1 leading-relaxed">For <b>Single-Resource Brands (16 brands)</b>, 1 employee handles CS+ACC+NDR; when that owner takes a weekly off or leave on an operating day (e.g., a 365-day brand), the engine routes coverage to the Pod's Float Specialist or Pod Lead. For <b>Multi-Resource Brands (4 brands)</b>, coverage is validated per process (e.g. CS requires 2 staff on weekdays, 1 on Sunday; NDR runs Mon-Sat), staggering weekly offs among the assigned specialists first before pulling a Pod Floater.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="font-bold text-slate-900">Q4. What happens when an employee managing all processes for a brand is unavailable on a required day?</div>
+                <p class="mt-1 leading-relaxed">The system immediately detects that all active processes for that brand have dropped to `0/1` coverage on a required operating day. It raises a <b>Critical Coverage Gap</b> alert and provides a 1-click recommendation showing available cross-trained Pod Floaters/Leads in the same Pod who can step in as `BACKUP` for that specific date without regenerating the entire monthly roster.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="font-bold text-slate-900">Q5. How does your system handle conflicting requirements or insufficient staffing?</div>
+                <p class="mt-1 leading-relaxed">Instead of silently producing an invalid schedule, the system separates <b>Mandatory Constraints</b> (Client Coverage SLAs, Approved Leaves) from <b>Soft Preferences</b> (Preferred Weekly Off day). Mandatory client coverage takes priority over a preferred weekly off (generating an amber Soft Warning), and if total pod capacity is exceeded, it highlights the exact `(Brand, Process, Day)` in red as an unresolved Hard Conflict for manager intervention.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="font-bold text-slate-900">Q6. Which parts did you automate, and which did you leave under human control? Why?</div>
+                <p class="mt-1 leading-relaxed">I automated initial 30-day roster generation, operating calendar compliance, real-time gap detection, and backup candidate filtering. However, mid-month leave overrides, client rule upgrades, and final conflict approvals remain under human control (with 1-click assistance) because operations managers have real-world context on client escalations and employee burnout.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="font-bold text-slate-900">Q7. If the company doubled its team and brand count (60+ staff, 40+ brands), what would you change?</div>
+                <p class="mt-1 leading-relaxed">I would migrate the `localStorage` state to a PostgreSQL backend with REST APIs, replace the greedy two-pass solver with Google OR-Tools (CP-SAT Integer Linear Programming in Python) to globally optimize fairness across pods, and add role-based authentication so each Pod Lead approves their own pod's roster.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div class="font-bold text-slate-900">Q8. If you had one additional week, what would you improve first?</div>
+                <p class="mt-1 leading-relaxed">I would add historical ticket/order volume forecasting per brand (integrating Shopify/Helpdesk metrics) so `minStaff` dynamically scales on high-volume sale days, along with automated Slack/WhatsApp shift-change notifications for employees.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submission Checklist Card -->
+          <div class="bg-indigo-50 rounded-2xl border border-indigo-200 p-5 text-xs space-y-2">
+            <h4 class="font-bold text-indigo-950 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-rocket text-indigo-600"></i>
+              How to Deploy &amp; Submit in 5 Minutes
+            </h4>
+            <ol class="list-decimal list-inside space-y-1.5 text-indigo-900">
+              <li><b>Save this file</b> as <code>index.html</code> on your computer.</li>
+              <li><b>Host for Free (30 seconds):</b> Go to <a href="https://app.netlify.com/drop" target="_blank" class="underline font-bold">app.netlify.com/drop</a> or GitHub Pages and drag-and-drop the folder containing <code>index.html</code>. You will get a live public HTTPS URL immediately.</li>
+              <li><b>GitHub Repo:</b> Upload <code>index.html</code> + click <b>"Copy Full GitHub README.md"</b> above and paste it into <code>README.md</code>.</li>
+              <li><b>3-Minute Loom Demo Video:</b> Show (1) Company/Pod/Brand/Process/Employee views, (2) Click "Simulate Change (Sec 3F)" and resolve the AuraSkin emergency leave with 1 click, and (3) Export CSV for Excel/Power BI.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ======================================================================= -->
+  <!-- INTERACTIVE CELL EDITOR MODAL WITH LIVE IMPACT PREVIEW (Sec 3E & 3F)    -->
+  <!-- ======================================================================= -->
+  <div id="cellEditorModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600" id="modalEmpPod">POD ALPHA</span>
+          <h3 class="text-base font-bold text-slate-900" id="modalEmpName">Employee Name</h3>
+          <p class="text-xs text-slate-500" id="modalDateSubtitle">Date: Nov 12, 2026</p>
+        </div>
+        <button onclick="closeCellModal()" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+        <div class="flex justify-between">
+          <span class="text-slate-500">Assigned Brand(s) &amp; Processes:</span>
+          <span class="font-bold text-slate-800 text-right" id="modalPrimaryAssign">-</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">Preferred Weekly Off:</span>
+          <span class="font-semibold text-slate-800" id="modalPrefOff">-</span>
+        </div>
+      </div>
+
+      <!-- Real-Time Impact Preview Box (Requirement 2 & 3F) -->
+      <div id="modalImpactPreviewBox" class="p-3 rounded-xl border text-xs space-y-2">
+        <!-- Populated dynamically by openCellModal() -->
+      </div>
+
+      <div class="space-y-2 text-xs">
+        <label class="block font-bold text-slate-700">Manual Shift / Status Override for this Date:</label>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <button type="button" onclick="applyCellStatus('WORK')" class="p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold text-left flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 shrink-0"></span> WORK (Primary)
+          </button>
+          <button type="button" onclick="applyCellStatus('WEEK_OFF')" class="p-2.5 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-left flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-slate-400 shrink-0"></span> WEEK_OFF
+          </button>
+          <button type="button" onclick="applyCellStatus('LEAVE')" class="p-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-left flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-amber-500 shrink-0"></span> LEAVE
+          </button>
+          <button type="button" onclick="applyCellStatus('COMP_OFF')" class="p-2.5 rounded-xl border border-teal-300 bg-teal-50 hover:bg-teal-100 text-teal-900 font-bold text-left flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-teal-500 shrink-0"></span> COMP_OFF
+          </button>
+          <button type="button" onclick="applyCellStatus('HOLIDAY')" class="p-2.5 rounded-xl border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-left flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-purple-500 shrink-0"></span> HOLIDAY
+          </button>
+        </div>
+      </div>
+
+      <!-- Assign as Backup for a Specific Brand -->
+      <div class="pt-3 border-t border-slate-200 space-y-2 text-xs">
+        <label class="block font-bold text-sky-800">Or Assign as Pod Backup (`BACKUP`) for Brand:</label>
+        <div class="flex gap-2">
+          <select id="modalBackupBrandSelect" class="flex-1 px-3 py-2 rounded-lg border border-slate-300"></select>
+          <button type="button" onclick="applyCellBackupStatus()" class="px-3.5 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold">
+            Assign Backup
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION BANNER -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- ======================================================================= -->
+  <!-- APPLICATION JAVASCRIPT ENGINE                                           -->
+  <!-- ======================================================================= -->
+  <script>
+    /***************************************************************************
+     * 1. DOMAIN CONSTANTS & DYNAMIC CALENDAR HELPERS (Section 3C)
+     ***************************************************************************/
+    const MONTH_CONFIGS = {
+      '2026-11': {
+        year: 2026, monthIndex: 10, totalDays: 30, label: 'Nov 2026',
+        defaultHolidays: [1, 2, 24],
+        holidayLabels: { 1: 'Nov 1 (Diwali)', 2: 'Nov 2 (Balipratipada)', 15: 'Nov 15 (Birsa Munda Jayanti)', 24: 'Nov 24 (Guru Nanak Jayanti)' }
+      },
+      '2026-12': {
+        year: 2026, monthIndex: 11, totalDays: 31, label: 'Dec 2026',
+        defaultHolidays: [25, 31],
+        holidayLabels: { 24: 'Dec 24 (Christmas Eve)', 25: 'Dec 25 (Christmas Day)', 31: 'Dec 31 (New Year Eve)' }
+      },
+      '2027-01': {
+        year: 2027, monthIndex: 0, totalDays: 31, label: 'Jan 2027',
+        defaultHolidays: [1, 14, 26],
+        holidayLabels: { 1: 'Jan 1 (New Year Day)', 14: 'Jan 14 (Makar Sankranti)', 26: 'Jan 26 (Republic Day)' }
+      }
+    };
+
+    let CURRENT_MONTH_KEY = '2026-11';
+    let YEAR = 2026;
+    let MONTH_INDEX = 10; // 0-indexed: 10 = November
+    let TOTAL_DAYS = 30;
+    const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const STORAGE_KEY = 'DATASTRAW_ROSTER_STATE_V3';
+
+    function syncMonthGlobals(monthKey) {
+      const cfg = MONTH_CONFIGS[monthKey] || MONTH_CONFIGS['2026-11'];
+      CURRENT_MONTH_KEY = monthKey in MONTH_CONFIGS ? monthKey : '2026-11';
+      YEAR = cfg.year;
+      MONTH_INDEX = cfg.monthIndex;
+      TOTAL_DAYS = cfg.totalDays;
+    }
+
+    function getDayOfWeek(dayNum) {
+      return new Date(YEAR, MONTH_INDEX, dayNum).getDay();
+    }
+
+    function isSunday(dayNum) {
+      return getDayOfWeek(dayNum) === 0;
+    }
+
+    function getMonthShortName() {
+      return (MONTH_CONFIGS[CURRENT_MONTH_KEY]?.label || 'Nov 2026').split(' ')[0];
+    }
+
+    /***************************************************************************
+     * 2. REALISTIC SAMPLE DATASET BUILDER (34 Employees, 20 Brands, 4 Pods)
+     ***************************************************************************/
+    function buildInitialDataset(monthKey = '2026-11') {
+      syncMonthGlobals(monthKey);
+      const pods = [
+        { id: 'POD_ALPHA', name: 'Pod Alpha (Fashion & Apparel)', leadName: 'Aarav Mehta', color: 'indigo' },
+        { id: 'POD_BETA',  name: 'Pod Beta (Beauty & Personal Care)', leadName: 'Priya Nair', color: 'rose' },
+        { id: 'POD_GAMMA', name: 'Pod Gamma (Health & Nutrition)', leadName: 'Rohan Deshmukh', color: 'emerald' },
+        { id: 'POD_DELTA', name: 'Pod Delta (Home & Electronics)', leadName: 'Sneha Kulkarni', color: 'amber' }
+      ];
+
+      // 20 Brands: 16 Single-Resource (80%) + 4 Multi-Resource (20%)
+      const brands = [
+        // --- POD ALPHA (4 Single + 1 Multi) ---
+        {
+          id: 'BR_01', name: 'VelvetVogue', podId: 'POD_ALPHA', staffingModel: 'SINGLE',
+          operatingCalendar: '365_DAYS',
+          processes: {
+            CS:  { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            ACC: { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            RET: { active: false, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_02', name: 'DenimCraft', podId: 'POD_ALPHA', staffingModel: 'SINGLE',
+          operatingCalendar: 'NO_PUBLIC_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            ACC: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            RET: { active: false, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_03', name: 'KnitTheory', podId: 'POD_ALPHA', staffingModel: 'SINGLE',
+          operatingCalendar: 'MON_SAT_NO_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            ACC: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_04', name: 'SoleStreet', podId: 'POD_ALPHA', staffingModel: 'SINGLE',
+          operatingCalendar: 'MON_SAT_NO_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            ACC: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: false, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          // MULTI-RESOURCE BRAND 1 (Pod Alpha): CS runs 365 days (minStaff 2 on Mon-Sat, 1 on Sun), ACC runs No-Holidays, NDR & RET run Mon-Sat
+          id: 'BR_05', name: 'UrbanLoom (Multi)', podId: 'POD_ALPHA', staffingModel: 'MULTI',
+          operatingCalendar: '365_DAYS',
+          processes: {
+            CS:  { active: true, calendar: '365_DAYS', minStaffWeekday: 2, minStaffSunday: 1 },
+            ACC: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 }
+          }
+        },
+
+        // --- POD BETA (4 Single + 1 Multi) ---
+        {
+          id: 'BR_06', name: 'AuraSkin', podId: 'POD_BETA', staffingModel: 'SINGLE',
+          operatingCalendar: '365_DAYS',
+          processes: {
+            CS:  { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            ACC: { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            RET: { active: false, calendar: '365_DAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_07', name: 'PurePetal', podId: 'POD_BETA', staffingModel: 'SINGLE',
+          operatingCalendar: 'NO_PUBLIC_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            ACC: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            RET: { active: false, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_08', name: 'BotanicaGlow', podId: 'POD_BETA', staffingModel: 'SINGLE',
+          operatingCalendar: 'MON_SAT_NO_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            ACC: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_09', name: 'VelvetLips', podId: 'POD_BETA', staffingModel: 'SINGLE',
+          operatingCalendar: 'MON_SAT_NO_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            ACC: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: false, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          // MULTI-RESOURCE BRAND 2 (Pod Beta)
+          id: 'BR_10', name: 'LuminaCosmetics (Multi)', podId: 'POD_BETA', staffingModel: 'MULTI',
+          operatingCalendar: '365_DAYS',
+          processes: {
+            CS:  { active: true, calendar: '365_DAYS', minStaffWeekday: 2, minStaffSunday: 1 },
+            ACC: { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: false, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+
+        // --- POD GAMMA (4 Single + 1 Multi) ---
+        {
+          id: 'BR_11', name: 'NutriPulse', podId: 'POD_GAMMA', staffingModel: 'SINGLE',
+          operatingCalendar: '365_DAYS',
+          processes: {
+            CS:  { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            ACC: { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            RET: { active: false, calendar: '365_DAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_12', name: 'ZenVeda', podId: 'POD_GAMMA', staffingModel: 'SINGLE',
+          operatingCalendar: 'MON_SAT_NO_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            ACC: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_13', name: 'ProteinForge', podId: 'POD_GAMMA', staffingModel: 'SINGLE',
+          operatingCalendar: 'NO_PUBLIC_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            ACC: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            RET: { active: false, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_14', name: 'HerbalRoots', podId: 'POD_GAMMA', staffingModel: 'SINGLE',
+          operatingCalendar: 'MON_SAT_NO_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            ACC: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: false, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          // MULTI-RESOURCE BRAND 3 (Pod Gamma)
+          id: 'BR_15', name: 'FitFuelLabs (Multi)', podId: 'POD_GAMMA', staffingModel: 'MULTI',
+          operatingCalendar: 'NO_PUBLIC_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 2, minStaffSunday: 1 },
+            ACC: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 }
+          }
+        },
+
+        // --- POD DELTA (4 Single + 1 Multi) ---
+        {
+          id: 'BR_16', name: 'BrewMaster', podId: 'POD_DELTA', staffingModel: 'SINGLE',
+          operatingCalendar: '365_DAYS',
+          processes: {
+            CS:  { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            ACC: { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: '365_DAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            RET: { active: false, calendar: '365_DAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_17', name: 'CozyNest', podId: 'POD_DELTA', staffingModel: 'SINGLE',
+          operatingCalendar: 'MON_SAT_NO_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            ACC: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: false, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_18', name: 'SonicGear', podId: 'POD_DELTA', staffingModel: 'SINGLE',
+          operatingCalendar: 'NO_PUBLIC_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            ACC: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            RET: { active: false, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        },
+        {
+          id: 'BR_19', name: 'TerraKitchen', podId: 'POD_DELTA', staffingModel: 'SINGLE',
+          operatingCalendar: 'MON_SAT_NO_HOLIDAYS',
+          processes: {
+            CS:  { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            ACC: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 }
+          }
+        },
+        {
+          // MULTI-RESOURCE BRAND 4 (Pod Delta)
+          id: 'BR_20', name: 'VoltEdgeTech (Multi)', podId: 'POD_DELTA', staffingModel: 'MULTI',
+          operatingCalendar: '365_DAYS',
+          processes: {
+            CS:  { active: true, calendar: '365_DAYS', minStaffWeekday: 2, minStaffSunday: 1 },
+            ACC: { active: true, calendar: 'NO_PUBLIC_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 1 },
+            NDR: { active: true, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 1, minStaffSunday: 0 },
+            RET: { active: false, calendar: 'MON_SAT_NO_HOLIDAYS', minStaffWeekday: 0, minStaffSunday: 0 }
+          }
+        }
+      ];
+
+      // 34 Employees distributed across the 4 Pods:
+      // - 16 Dedicated Single-Brand Owners (EMP_01 .. EMP_16)
+      // - 10 Multi-Resource Brand Specialists (EMP_17 .. EMP_26)
+      // - 8 Pod Leads & Cross-Trained Pod Float Specialists (EMP_27 .. EMP_34: 1 Lead + 1 Float per Pod)
+      const employees = [
+        // --- 16 DEDICATED SINGLE-BRAND OWNERS ---
+        { id: 'EMP_01', name: 'Kabir Sharma',     role: 'DEDICATED_OWNER', podId: 'POD_ALPHA', preferredWeekOff: 2, assignments: [{ brandId: 'BR_01', processes: ['CS','ACC','NDR'] }], plannedLeaves: [12], compOffs: [] },
+        { id: 'EMP_02', name: 'Ananya Roy',       role: 'DEDICATED_OWNER', podId: 'POD_ALPHA', preferredWeekOff: 3, assignments: [{ brandId: 'BR_02', processes: ['CS','ACC','NDR'] }], plannedLeaves: [], compOffs: [19] },
+        { id: 'EMP_03', name: 'Vikramaditya Rao', role: 'DEDICATED_OWNER', podId: 'POD_ALPHA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_03', processes: ['CS','ACC','NDR','RET'] }], plannedLeaves: [6], compOffs: [] },
+        { id: 'EMP_04', name: 'Meera Krishnan',   role: 'DEDICATED_OWNER', podId: 'POD_ALPHA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_04', processes: ['CS','ACC','NDR'] }], plannedLeaves: [], compOffs: [] },
+
+        { id: 'EMP_05', name: 'Rohini Verma',     role: 'DEDICATED_OWNER', podId: 'POD_BETA',  preferredWeekOff: 4, assignments: [{ brandId: 'BR_06', processes: ['CS','ACC','NDR'] }], plannedLeaves: [10], compOffs: [] },
+        { id: 'EMP_06', name: 'Tanya Malhotra',   role: 'DEDICATED_OWNER', podId: 'POD_BETA',  preferredWeekOff: 1, assignments: [{ brandId: 'BR_07', processes: ['CS','ACC','NDR'] }], plannedLeaves: [], compOffs: [25] },
+        { id: 'EMP_07', name: 'Sana Sheikh',      role: 'DEDICATED_OWNER', podId: 'POD_BETA',  preferredWeekOff: 0, assignments: [{ brandId: 'BR_08', processes: ['CS','ACC','NDR','RET'] }], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_08', name: 'Nidhi Patel',      role: 'DEDICATED_OWNER', podId: 'POD_BETA',  preferredWeekOff: 0, assignments: [{ brandId: 'BR_09', processes: ['CS','ACC','NDR'] }], plannedLeaves: [20], compOffs: [] },
+
+        { id: 'EMP_09', name: 'Arjun Nair',       role: 'DEDICATED_OWNER', podId: 'POD_GAMMA', preferredWeekOff: 5, assignments: [{ brandId: 'BR_11', processes: ['CS','ACC','NDR'] }], plannedLeaves: [16], compOffs: [] },
+        { id: 'EMP_10', name: 'Devika Menon',     role: 'DEDICATED_OWNER', podId: 'POD_GAMMA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_12', processes: ['CS','ACC','NDR','RET'] }], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_11', name: 'Harshvardhan Gill',role: 'DEDICATED_OWNER', podId: 'POD_GAMMA', preferredWeekOff: 2, assignments: [{ brandId: 'BR_13', processes: ['CS','ACC','NDR'] }], plannedLeaves: [], compOffs: [11] },
+        { id: 'EMP_12', name: 'Pooja Chavan',     role: 'DEDICATED_OWNER', podId: 'POD_GAMMA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_14', processes: ['CS','ACC','NDR'] }], plannedLeaves: [], compOffs: [] },
+
+        { id: 'EMP_13', name: 'Nikhil Gowda',     role: 'DEDICATED_OWNER', podId: 'POD_DELTA', preferredWeekOff: 3, assignments: [{ brandId: 'BR_16', processes: ['CS','ACC','NDR'] }], plannedLeaves: [5], compOffs: [] },
+        { id: 'EMP_14', name: 'Rituja Sawant',    role: 'DEDICATED_OWNER', podId: 'POD_DELTA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_17', processes: ['CS','ACC','NDR'] }], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_15', name: 'Zaid Qureshi',     role: 'DEDICATED_OWNER', podId: 'POD_DELTA', preferredWeekOff: 5, assignments: [{ brandId: 'BR_18', processes: ['CS','ACC','NDR'] }], plannedLeaves: [], compOffs: [26] },
+        { id: 'EMP_16', name: 'Komal Tiwari',     role: 'DEDICATED_OWNER', podId: 'POD_DELTA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_19', processes: ['CS','ACC','NDR','RET'] }], plannedLeaves: [], compOffs: [] },
+
+        // --- 10 MULTI-RESOURCE SPECIALISTS (Across BR_05, BR_10, BR_15, BR_20) ---
+        // UrbanLoom (BR_05 - Pod Alpha): 3 employees with overlapping CS and specialized ACC/NDR/RET
+        // Note: EMP_19 Pranav Joshi is also assigned to BR_03 KnitTheory (Multi-Brand Employee per Sec 3A)
+        { id: 'EMP_17', name: 'Ishaan Khatri',    role: 'PROCESS_SPECIALIST', podId: 'POD_ALPHA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_05', processes: ['CS','ACC'] }], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_18', name: 'Simran Kaur',      role: 'PROCESS_SPECIALIST', podId: 'POD_ALPHA', preferredWeekOff: 4, assignments: [{ brandId: 'BR_05', processes: ['CS','RET'] }], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_19', name: 'Pranav Joshi',     role: 'PROCESS_SPECIALIST', podId: 'POD_ALPHA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_05', processes: ['NDR','CS'] }, { brandId: 'BR_03', processes: ['NDR','CS'] }], plannedLeaves: [], compOffs: [] },
+
+        // LuminaCosmetics (BR_10 - Pod Beta): 3 employees
+        { id: 'EMP_20', name: 'Aisha Siddiqui',   role: 'PROCESS_SPECIALIST', podId: 'POD_BETA',  preferredWeekOff: 0, assignments: [{ brandId: 'BR_10', processes: ['CS','ACC'] }], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_21', name: 'Varun Dhawan',     role: 'PROCESS_SPECIALIST', podId: 'POD_BETA',  preferredWeekOff: 5, assignments: [{ brandId: 'BR_10', processes: ['CS'] }], plannedLeaves: [23], compOffs: [] },
+        { id: 'EMP_22', name: 'Chitra Iyer',      role: 'PROCESS_SPECIALIST', podId: 'POD_BETA',  preferredWeekOff: 0, assignments: [{ brandId: 'BR_10', processes: ['NDR','ACC'] }], plannedLeaves: [], compOffs: [] },
+
+        // FitFuelLabs (BR_15 - Pod Gamma): 2 employees
+        { id: 'EMP_23', name: 'Manish Pandey',    role: 'PROCESS_SPECIALIST', podId: 'POD_GAMMA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_15', processes: ['CS','ACC'] }], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_24', name: 'Shruti Gokhale',   role: 'PROCESS_SPECIALIST', podId: 'POD_GAMMA', preferredWeekOff: 4, assignments: [{ brandId: 'BR_15', processes: ['CS','NDR','RET'] }], plannedLeaves: [], compOffs: [] },
+
+        // VoltEdgeTech (BR_20 - Pod Delta): 2 employees
+        { id: 'EMP_25', name: 'Deepak Hooda',     role: 'PROCESS_SPECIALIST', podId: 'POD_DELTA', preferredWeekOff: 0, assignments: [{ brandId: 'BR_20', processes: ['CS','ACC'] }], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_26', name: 'Bhavna Parekh',    role: 'PROCESS_SPECIALIST', podId: 'POD_DELTA', preferredWeekOff: 1, assignments: [{ brandId: 'BR_20', processes: ['CS','NDR'] }], plannedLeaves: [], compOffs: [] },
+
+        // --- 8 POD LEADS & POD FLOAT SPECIALISTS (1 Lead + 1 Float per Pod) ---
+        { id: 'EMP_27', name: 'Aarav Mehta (Lead)',       role: 'POD_LEAD',  podId: 'POD_ALPHA', preferredWeekOff: 6, assignments: [], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_28', name: 'Priya Nair (Lead)',        role: 'POD_LEAD',  podId: 'POD_BETA',  preferredWeekOff: 6, assignments: [], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_29', name: 'Rohan Deshmukh (Lead)',    role: 'POD_LEAD',  podId: 'POD_GAMMA', preferredWeekOff: 6, assignments: [], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_30', name: 'Sneha Kulkarni (Lead)',    role: 'POD_LEAD',  podId: 'POD_DELTA', preferredWeekOff: 6, assignments: [], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_31', name: 'Karanbir Singh (Float)',   role: 'POD_FLOAT', podId: 'POD_ALPHA', preferredWeekOff: 1, assignments: [], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_32', name: 'Aditi Chatterjee (Float)', role: 'POD_FLOAT', podId: 'POD_BETA',  preferredWeekOff: 2, assignments: [], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_33', name: 'Siddharth Nair (Float)',   role: 'POD_FLOAT', podId: 'POD_GAMMA', preferredWeekOff: 1, assignments: [], plannedLeaves: [], compOffs: [] },
+        { id: 'EMP_34', name: 'Tanvi Kulkarni (Float)',   role: 'POD_FLOAT', podId: 'POD_DELTA', preferredWeekOff: 2, assignments: [], plannedLeaves: [], compOffs: [] }
+      ];
+
+      const publicHolidays = [...(MONTH_CONFIGS[CURRENT_MONTH_KEY]?.defaultHolidays || [1, 2, 24])];
+
+      return {
+        monthKey: CURRENT_MONTH_KEY,
+        pods,
+        brands,
+        employees,
+        publicHolidays,
+        roster: {},
+        conflicts: { hard: [], soft: [] }
+      };
+    }
+
+    /***************************************************************************
+     * 3. GLOBAL APPLICATION STATE & PERSISTENCE
+     ***************************************************************************/
+    let DB = null;
+    let activeMainTab = 'roster';
+    let activeStakeholderView = 'company'; // 'company' | 'pod' | 'brand' | 'process' | 'employee'
+    let selectedPodFilter = 'ALL';
+    let selectedBrandFilter = 'ALL';
+    let inspectedBrandId = 'BR_05'; // Default brand shown in the Brand Calendar vs Employee Schedule breakdown
+    let selectedProcessFilter = 'CS';
+    let selectedEmployeeFilter = 'EMP_01';
+    let editingCellContext = null; // { empId, dayNum }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          DB = JSON.parse(raw);
+          if (!DB.employees || DB.employees.length < 34) {
+            DB = buildInitialDataset('2026-11');
+            runRosterEngine(true);
+          } else {
+            syncMonthGlobals(DB.monthKey || '2026-11');
+            const sel = document.getElementById('monthSelector');
+            if (sel) sel.value = CURRENT_MONTH_KEY;
+            validateEntireRoster();
+          }
+        } else {
+          DB = buildInitialDataset('2026-11');
+          runRosterEngine(true);
+        }
+      } catch (e) {
+        console.error('State load error, rebuilding default dataset:', e);
+        DB = buildInitialDataset('2026-11');
+        runRosterEngine(true);
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+      } catch (e) {
+        console.error('Failed to persist state:', e);
+      }
+    }
+
+    // Switch Planning Month dynamically (Requirement 3C)
+    function changePlanningMonth(newMonthKey) {
+      syncMonthGlobals(newMonthKey);
+      DB.monthKey = CURRENT_MONTH_KEY;
+      DB.publicHolidays = [...(MONTH_CONFIGS[CURRENT_MONTH_KEY]?.defaultHolidays || [])];
+      const autoBackups = document.getElementById('autoAssignBackupsToggle')?.checked ?? true;
+      runRosterEngine(autoBackups);
+      renderStakeholderFilters();
+      renderActiveStakeholderView();
+      showToast(`Switched planning month to ${MONTH_CONFIGS[CURRENT_MONTH_KEY].label} (${TOTAL_DAYS} days) and generated schedule!`, 'indigo');
+    }
+
+    /***************************************************************************
+     * 4. OPERATING CALENDAR & CONSTRAINT SOLVER ENGINE
+     ***************************************************************************/
+    function doesCalendarOperateOnDay(calendarCode, dayNum, publicHolidays) {
+      const isHol = publicHolidays.includes(dayNum);
+      const isSun = isSunday(dayNum);
+      if (calendarCode === '365_DAYS') {
+        return true;
+      }
+      if (calendarCode === 'NO_PUBLIC_HOLIDAYS') {
+        return !isHol;
+      }
+      if (calendarCode === 'MON_SAT_NO_HOLIDAYS') {
+        return !isSun && !isHol;
+      }
+      return true;
+    }
+
+    function getRequiredProcessStaff(brand, procCode, dayNum, publicHolidays) {
+      const procRule = brand.processes[procCode];
+      if (!procRule || !procRule.active) return 0;
+      const calendarToUse = procRule.calendar || brand.operatingCalendar;
+      if (!doesCalendarOperateOnDay(calendarToUse, dayNum, publicHolidays)) {
+        return 0;
+      }
+      const isSunOrHol = isSunday(dayNum) || publicHolidays.includes(dayNum);
+      if (isSunOrHol) {
+        return procRule.minStaffSunday !== undefined ? procRule.minStaffSunday : procRule.minStaffWeekday;
+      }
+      return procRule.minStaffWeekday || 1;
+    }
+
+    function doesEmployeeHaveOperatingAssignmentOnDay(emp, dayNum) {
+      if (emp.role === 'POD_LEAD' || emp.role === 'POD_FLOAT') {
+        return true;
+      }
+      for (const assign of emp.assignments) {
+        const brand = DB.brands.find(b => b.id === assign.brandId);
+        if (!brand) continue;
+        for (const procCode of assign.processes) {
+          if (getRequiredProcessStaff(brand, procCode, dayNum, DB.publicHolidays) > 0) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    // PASS 1 + PASS 2 Deterministic Monthly Roster Generator
+    function runRosterEngine(useAutoBackups = true) {
+      const newRoster = {};
+      DB.employees.forEach(emp => {
+        newRoster[emp.id] = {};
+      });
+
+      // PASS 1: Base Employee Schedules
+      for (let day = 1; day <= TOTAL_DAYS; day++) {
+        const dow = getDayOfWeek(day);
+        const isHol = DB.publicHolidays.includes(day);
+
+        DB.employees.forEach(emp => {
+          // 1. Hard Planned Leave
+          if (emp.plannedLeaves && emp.plannedLeaves.includes(day)) {
+            newRoster[emp.id][day] = { status: 'LEAVE', backupBrandId: null, note: 'Approved Planned Leave' };
+            return;
+          }
+          // 2. Hard Approved Comp-Off
+          if (emp.compOffs && emp.compOffs.includes(day)) {
+            newRoster[emp.id][day] = { status: 'COMP_OFF', backupBrandId: null, note: 'Approved Comp-Off' };
+            return;
+          }
+          // 3. Check if employee's assigned brand(s) are closed for Public Holiday or Sunday
+          if (emp.role !== 'POD_LEAD' && emp.role !== 'POD_FLOAT') {
+            const neededToday = doesEmployeeHaveOperatingAssignmentOnDay(emp, day);
+            if (!neededToday) {
+              if (isHol) {
+                newRoster[emp.id][day] = { status: 'HOLIDAY', backupBrandId: null, note: 'Client Closed (Public Holiday)' };
+              } else {
+                newRoster[emp.id][day] = { status: 'WEEK_OFF', backupBrandId: null, note: 'Client Closed (Sunday Off)' };
+              }
+              return;
+            }
+          } else {
+            if (isHol && dow === emp.preferredWeekOff) {
+              newRoster[emp.id][day] = { status: 'WEEK_OFF', backupBrandId: null, note: 'Weekly Off' };
+              return;
+            }
+          }
+
+          // 4. Preferred Weekly Off
+          if (dow === emp.preferredWeekOff) {
+            newRoster[emp.id][day] = { status: 'WEEK_OFF', backupBrandId: null, note: 'Preferred Weekly Off' };
+            return;
+          }
+
+          // 5. Otherwise WORK
+          newRoster[emp.id][day] = {
+            status: 'WORK',
+            backupBrandId: null,
+            note: emp.role === 'POD_LEAD' || emp.role === 'POD_FLOAT' ? 'Pod Supervision & Float Capacity' : 'Primary Brand Operations'
+          };
+        });
+      }
+
+      DB.roster = newRoster;
+
+      // PASS 2: Coverage Check & Smart Pod Backup Allocation
+      for (let day = 1; day <= TOTAL_DAYS; day++) {
+        DB.brands.forEach(brand => {
+          const activeProcs = ['CS', 'ACC', 'NDR', 'RET'].filter(p =>
+            getRequiredProcessStaff(brand, p, day, DB.publicHolidays) > 0
+          );
+          if (activeProcs.length === 0) return;
+
+          // Loop until all processes on this brand meet required minStaff or no backup candidates remain
+          let safetyCounter = 0;
+          while (safetyCounter < 4) {
+            safetyCounter++;
+            const unmetProcs = activeProcs.filter(procCode => {
+              const req = getRequiredProcessStaff(brand, procCode, day, DB.publicHolidays);
+              const actual = getWorkingStaffForBrandProcess(brand.id, procCode, day).length;
+              return actual < req;
+            });
+
+            if (unmetProcs.length === 0) break;
+
+            if (!useAutoBackups) break;
+
+            // Priority A: Available Pod Float or Pod Lead
+            const candidate = findAvailableBackupCandidate(brand.podId, day);
+            if (candidate) {
+              DB.roster[candidate.id][day] = {
+                status: 'BACKUP',
+                backupBrandId: brand.id,
+                note: `Pod Backup for ${brand.name} (${unmetProcs.join(',')})`
+              };
+              continue;
+            }
+
+            // Priority B: Override Soft Preferred Week-Off of an assigned specialist if Mandatory Client Coverage requires it (Section 3D)
+            const assignedOnSoftOff = DB.employees.find(e =>
+              e.assignments.some(a => a.brandId === brand.id && a.processes.some(p => unmetProcs.includes(p))) &&
+              DB.roster[e.id]?.[day]?.status === 'WEEK_OFF' &&
+              doesEmployeeHaveOperatingAssignmentOnDay(e, day)
+            );
+            if (assignedOnSoftOff) {
+              DB.roster[assignedOnSoftOff.id][day] = {
+                status: 'WORK',
+                backupBrandId: null,
+                note: 'Preferred Week-Off Overridden for Mandatory Client Coverage'
+              };
+              continue;
+            }
+
+            break;
+          }
+        });
+      }
+
+      validateEntireRoster();
+      saveState();
+    }
+
+    // Helper: Returns array of employees currently covering (brandId, procCode, dayNum)
+    function getWorkingStaffForBrandProcess(brandId, procCode, dayNum) {
+      const staff = [];
+      DB.employees.forEach(emp => {
+        const cell = DB.roster[emp.id]?.[dayNum];
+        if (!cell) return;
+        if (cell.status === 'WORK') {
+          const matchesAssign = emp.assignments.some(a => a.brandId === brandId && a.processes.includes(procCode));
+          if (matchesAssign) staff.push(emp);
+        } else if (cell.status === 'BACKUP' && cell.backupBrandId === brandId) {
+          staff.push(emp);
+        }
+      });
+      return staff;
+    }
+
+    // Finds an available Pod Float or Pod Lead on `dayNum`
+    function findAvailableBackupCandidate(podId, dayNum) {
+      // Priority 1: Same-Pod Float or Lead currently in unallocated 'WORK'
+      let candidate = DB.employees.find(e =>
+        e.podId === podId &&
+        (e.role === 'POD_FLOAT' || e.role === 'POD_LEAD') &&
+        DB.roster[e.id]?.[dayNum]?.status === 'WORK'
+      );
+      if (candidate) return candidate;
+
+      // Priority 2: Cross-Pod Float or Lead currently in unallocated 'WORK'
+      candidate = DB.employees.find(e =>
+        (e.role === 'POD_FLOAT' || e.role === 'POD_LEAD') &&
+        DB.roster[e.id]?.[dayNum]?.status === 'WORK'
+      );
+      if (candidate) return candidate;
+
+      // Priority 3: Same-Pod Float or Lead currently on soft preferred WEEK_OFF (Mandatory Coverage > Preferred Off)
+      candidate = DB.employees.find(e =>
+        e.podId === podId &&
+        (e.role === 'POD_FLOAT' || e.role === 'POD_LEAD') &&
+        DB.roster[e.id]?.[dayNum]?.status === 'WEEK_OFF'
+      );
+      if (candidate) return candidate;
+
+      return null;
+    }
+
+    /***************************************************************************
+     * 5. COMPREHENSIVE CONFLICT DETECTION & VALIDATOR (Requirement 3D)
+     ***************************************************************************/
+    function validateEntireRoster() {
+      const hard = [];
+      const soft = [];
+      const monthShort = getMonthShortName();
+
+      // 1. Validate every Brand & Process across all days of the active month
+      for (let day = 1; day <= TOTAL_DAYS; day++) {
+        const dowName = DAY_NAMES_SHORT[getDayOfWeek(day)];
+        DB.brands.forEach(brand => {
+          const missingProcs = [];
+          ['CS', 'ACC', 'NDR', 'RET'].forEach(procCode => {
+            const req = getRequiredProcessStaff(brand, procCode, day, DB.publicHolidays);
+            if (req > 0) {
+              const working = getWorkingStaffForBrandProcess(brand.id, procCode, day);
+              if (working.length < req) {
+                missingProcs.push({
+                  procCode,
+                  req,
+                  actual: working.length
+                });
+              }
+            }
+          });
+
+          if (missingProcs.length > 0) {
+            const primaryOwners = DB.employees.filter(e => e.assignments.some(a => a.brandId === brand.id));
+            const unavailableOwners = primaryOwners.filter(e => {
+              const st = DB.roster[e.id]?.[day]?.status;
+              return st !== 'WORK';
+            });
+            const isMultiBrandCascade = unavailableOwners.some(e => e.assignments.length > 1);
+            const unavailableReasons = primaryOwners.map(e => {
+              const st = DB.roster[e.id]?.[day]?.status || 'OFF';
+              const multiTag = e.assignments.length > 1 ? ' [Multi-Brand Specialist]' : '';
+              return `${e.name}${multiTag} is on ${st}`;
+            }).join('; ');
+
+            const candidate = findAvailableBackupCandidate(brand.podId, day);
+            hard.push({
+              id: `GAP_${brand.id}_${day}`,
+              type: isMultiBrandCascade ? 'MULTI_BRAND_CASCADE_GAP' : 'COVERAGE_GAP',
+              day,
+              dowName,
+              brandId: brand.id,
+              brandName: brand.name,
+              podId: brand.podId,
+              staffingModel: brand.staffingModel,
+              operatingCalendar: brand.operatingCalendar,
+              missingProcs,
+              reason: unavailableReasons || 'Insufficient assigned staff',
+              recommendedBackup: candidate ? { id: candidate.id, name: candidate.name, role: candidate.role } : null
+            });
+          }
+        });
+
+        // 2. Detect Overlapping Responsibilities / Double-Booking (Section 3D)
+        DB.employees.forEach(emp => {
+          const cell = DB.roster[emp.id]?.[day];
+          if (!cell) return;
+          if (cell.status === 'BACKUP' && emp.assignments.length > 0 && cell.backupBrandId) {
+            // Check if this employee has a primary brand that is ALSO operating today and isn't covered by someone else
+            emp.assignments.forEach(assign => {
+              if (assign.brandId !== cell.backupBrandId) {
+                const primaryBrand = DB.brands.find(b => b.id === assign.brandId);
+                if (primaryBrand) {
+                  const activeToday = assign.processes.some(p => getRequiredProcessStaff(primaryBrand, p, day, DB.publicHolidays) > 0);
+                  if (activeToday) {
+                    const backupBrand = DB.brands.find(b => b.id === cell.backupBrandId);
+                    hard.push({
+                      id: `OVERLAP_${emp.id}_${day}`,
+                      type: 'OVERLAPPING_SHIFT',
+                      day,
+                      dowName,
+                      brandId: primaryBrand.id,
+                      brandName: `${primaryBrand.name} <-> ${backupBrand ? backupBrand.name : cell.backupBrandId}`,
+                      podId: emp.podId,
+                      staffingModel: primaryBrand.staffingModel,
+                      operatingCalendar: primaryBrand.operatingCalendar,
+                      missingProcs: assign.processes.map(p => ({ procCode: p, actual: 0, req: 1 })),
+                      reason: `Overlapping Responsibility: ${emp.name} is assigned to primary brand ${primaryBrand.name} but was reassigned as BACKUP to ${backupBrand ? backupBrand.name : cell.backupBrandId} on ${monthShort} ${day}.`,
+                      recommendedBackup: findAvailableBackupCandidate(emp.podId, day)
+                    });
+                  }
+                }
+              }
+            });
+          }
+        });
+      }
+
+      // 3. Check Employee-level Soft Warnings (Preferred Week Off Overridden, Low/High Weekly Off count)
+      DB.employees.forEach(emp => {
+        let offCount = 0;
+        let workStreak = 0;
+        let maxStreak = 0;
+
+        for (let day = 1; day <= TOTAL_DAYS; day++) {
+          const cell = DB.roster[emp.id]?.[day];
+          if (!cell) continue;
+          const dow = getDayOfWeek(day);
+
+          if (dow === emp.preferredWeekOff && (cell.status === 'WORK' || cell.status === 'BACKUP')) {
+            soft.push({
+              id: `PREF_${emp.id}_${day}`,
+              type: 'PREF_OVERRIDE',
+              empId: emp.id,
+              empName: emp.name,
+              day,
+              message: `${emp.name} is scheduled as ${cell.status} on their preferred weekly-off (${DAY_NAMES_SHORT[dow]}, ${monthShort} ${day}) to satisfy mandatory client coverage.`
+            });
+          }
+
+          if (cell.status === 'WEEK_OFF' || cell.status === 'HOLIDAY') {
+            offCount++;
+            workStreak = 0;
+          } else if (cell.status === 'WORK' || cell.status === 'BACKUP') {
+            workStreak++;
+            if (workStreak > maxStreak) maxStreak = workStreak;
+          } else {
+            workStreak = 0;
+          }
+        }
+
+        if (offCount < 4) {
+          soft.push({
+            id: `LOW_OFF_${emp.id}`,
+            type: 'WORKLOAD_WARNING',
+            empId: emp.id,
+            empName: emp.name,
+            day: null,
+            message: `${emp.name} has only ${offCount} weekly-offs/holidays in ${MONTH_CONFIGS[CURRENT_MONTH_KEY].label} (Recommended minimum: 4).`
+          });
+        }
+        if (maxStreak > 7) {
+          soft.push({
+            id: `STREAK_${emp.id}`,
+            type: 'STREAK_WARNING',
+            empId: emp.id,
+            empName: emp.name,
+            day: null,
+            message: `${emp.name} has a continuous work streak of ${maxStreak} days without a weekly off.`
+          });
+        }
+      });
+
+      DB.conflicts = { hard, soft };
+      updateKPIHeader();
+      renderConflictsTab();
+    }
+
+    /***************************************************************************
+     * 6. ONE-CLICK RESOLUTION & SCENARIO SIMULATORS (Requirement 3F)
+     ***************************************************************************/
+    function assignBackupToResolveConflict(brandId, dayNum, backupEmpId) {
+      const brand = DB.brands.find(b => b.id === brandId);
+      const emp = DB.employees.find(e => e.id === backupEmpId);
+      if (!brand || !emp) return;
+
+      DB.roster[backupEmpId][dayNum] = {
+        status: 'BACKUP',
+        backupBrandId: brandId,
+        note: `Assigned Backup for ${brand.name}`
+      };
+
+      validateEntireRoster();
+      saveState();
+      renderActiveStakeholderView();
+      showToast(`Resolved! ${emp.name} assigned as Pod Backup for ${brand.name} on ${getMonthShortName()} ${dayNum}.`, 'emerald');
+    }
+
+    function autoResolveAllGapsWithPodFloats() {
+      let resolvedCount = 0;
+      DB.conflicts.hard.forEach(gap => {
+        const candidate = findAvailableBackupCandidate(gap.podId, gap.day);
+        if (candidate) {
+          DB.roster[candidate.id][gap.day] = {
+            status: 'BACKUP',
+            backupBrandId: gap.brandId,
+            note: `Auto-Backup for ${gap.brandName}`
+          };
+          resolvedCount++;
+        }
+      });
+
+      validateEntireRoster();
+      saveState();
+      renderActiveStakeholderView();
+      if (resolvedCount > 0) {
+        showToast(`Auto-resolved ${resolvedCount} coverage gap(s) using available Pod Floaters & Leads!`, 'emerald');
+      } else {
+        showToast(`No additional free Pod Floaters available for remaining gaps — manual override required.`, 'amber');
+      }
+    }
+
+    function toggleScenarioMenu() {
+      const menu = document.getElementById('scenarioMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    window.addEventListener('click', (e) => {
+      const menu = document.getElementById('scenarioMenu');
+      if (menu && !menu.contains(e.target) && !e.target.closest('button[onclick="toggleScenarioMenu()"]')) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    // 4 Live Post-Generation Change Scenarios (Section 3F)
+    function runScenario(code) {
+      document.getElementById('scenarioMenu').classList.add('hidden');
+      const mShort = getMonthShortName();
+
+      if (code === 'SINGLE_BRAND_LEAVE') {
+        const emp = DB.employees.find(e => e.id === 'EMP_05');
+        if (emp) {
+          if (!emp.plannedLeaves.includes(12)) emp.plannedLeaves.push(12);
+          if (!emp.plannedLeaves.includes(13)) emp.plannedLeaves.push(13);
+          DB.roster['EMP_05'][12] = { status: 'LEAVE', backupBrandId: null, note: 'Emergency Leave (Scenario 1)' };
+          DB.roster['EMP_05'][13] = { status: 'LEAVE', backupBrandId: null, note: 'Emergency Leave (Scenario 1)' };
+        }
+        validateEntireRoster();
+        saveState();
+        selectedBrandFilter = 'BR_06';
+        inspectedBrandId = 'BR_06';
+        switchMainTab('roster');
+        switchStakeholderView('brand');
+        showToast(`Scenario 1: Rohini Verma (sole owner of 365-day brand AuraSkin) marked on Leave ${mShort} 12–13. Gap flagged & Pod Beta backup suggested!`, 'rose');
+      }
+
+      else if (code === 'MULTI_BRAND_PARTIAL') {
+        const emp = DB.employees.find(e => e.id === 'EMP_17');
+        if (emp) {
+          if (!emp.plannedLeaves.includes(18)) emp.plannedLeaves.push(18);
+          DB.roster['EMP_17'][18] = { status: 'LEAVE', backupBrandId: null, note: 'Unplanned Absence (Scenario 2)' };
+        }
+        validateEntireRoster();
+        saveState();
+        selectedBrandFilter = 'BR_05';
+        inspectedBrandId = 'BR_05';
+        switchMainTab('roster');
+        switchStakeholderView('brand');
+        showToast(`Scenario 2: Ishaan Khatri (1 of 3 specialists on UrbanLoom) on Leave (${mShort} 18). Remaining team keeps NDR & RET at 1/1, while CS drops to 1/2 & ACC to 0/1!`, 'amber');
+      }
+
+      else if (code === 'SHARED_EMP_CASCADE') {
+        // Scenario 3: Pranav Joshi (EMP_19, shared across UrbanLoom BR_05 and KnitTheory BR_03) takes unplanned leave on Day 19
+        // Also mark Vikramaditya Rao (EMP_03) on Leave on Day 19 so Pranav's absence simultaneously impacts BOTH UrbanLoom and KnitTheory
+        const emp19 = DB.employees.find(e => e.id === 'EMP_19');
+        const emp03 = DB.employees.find(e => e.id === 'EMP_03');
+        if (emp19) {
+          if (!emp19.plannedLeaves.includes(19)) emp19.plannedLeaves.push(19);
+          DB.roster['EMP_19'][19] = { status: 'LEAVE', backupBrandId: null, note: 'Multi-Brand Shared Specialist Leave (Scenario 3)' };
+        }
+        if (emp03) {
+          if (!emp03.plannedLeaves.includes(19)) emp03.plannedLeaves.push(19);
+          DB.roster['EMP_03'][19] = { status: 'LEAVE', backupBrandId: null, note: 'Concurrent Leave (Scenario 3)' };
+        }
+        validateEntireRoster();
+        saveState();
+        selectedBrandFilter = 'ALL';
+        inspectedBrandId = 'BR_05';
+        switchMainTab('conflicts');
+        showToast(`Scenario 3: Shared specialist Pranav Joshi marked on Leave (${mShort} 19), triggering Multi-Brand Cascade Gaps across UrbanLoom & KnitTheory!`, 'purple');
+      }
+
+      else if (code === 'RULE_UPGRADE_365') {
+        const brand = DB.brands.find(b => b.id === 'BR_12');
+        if (brand) {
+          brand.operatingCalendar = '365_DAYS';
+          ['CS', 'ACC', 'NDR', 'RET'].forEach(p => {
+            if (brand.processes[p].active) {
+              brand.processes[p].calendar = '365_DAYS';
+              brand.processes[p].minStaffSunday = 1;
+            }
+          });
+        }
+        validateEntireRoster();
+        saveState();
+        selectedBrandFilter = 'BR_12';
+        inspectedBrandId = 'BR_12';
+        switchMainTab('roster');
+        switchStakeholderView('brand');
+        showToast('Scenario 4: ZenVeda upgraded from Mon-Sat to 365_DAYS mid-month! Existing roster preserved; Sunday & Holiday coverage gaps flagged.', 'indigo');
+      }
+    }
+
+    /***************************************************************************
+     * 7. UI RENDERING: HEADER KPIs, HOLIDAY PILLS & MAIN TABS
+     ***************************************************************************/
+    function updateKPIHeader() {
+      document.getElementById('kpiHolidayCount').textContent = DB.publicHolidays.length;
+      document.getElementById('kpiEmpCount').textContent = DB.employees.length;
+      document.getElementById('kpiPodCount').textContent = DB.pods.length;
+      document.getElementById('kpiBrandCount').textContent = DB.brands.length;
+      const holLabel = document.getElementById('holidayBarLabel');
+      if (holLabel) holLabel.textContent = MONTH_CONFIGS[CURRENT_MONTH_KEY]?.label || 'Nov 2026';
+
+      const singleCount = DB.brands.filter(b => b.staffingModel === 'SINGLE').length;
+      const multiCount = DB.brands.filter(b => b.staffingModel === 'MULTI').length;
+      document.getElementById('kpiBrandSplit').textContent = `${singleCount} Single / ${multiCount} Multi`;
+
+      let totalBrandDays = 0;
+      let coveredBrandDays = 0;
+      for (let d = 1; d <= TOTAL_DAYS; d++) {
+        DB.brands.forEach(b => {
+          const activeProcs = ['CS', 'ACC', 'NDR', 'RET'].filter(p => getRequiredProcessStaff(b, p, d, DB.publicHolidays) > 0);
+          if (activeProcs.length > 0) {
+            totalBrandDays++;
+            const allMet = activeProcs.every(p => getWorkingStaffForBrandProcess(b.id, p, d).length >= getRequiredProcessStaff(b, p, d, DB.publicHolidays));
+            if (allMet) coveredBrandDays++;
+          }
+        });
+      }
+
+      const pct = totalBrandDays > 0 ? Math.round((coveredBrandDays / totalBrandDays) * 100) : 100;
+      const healthCard = document.getElementById('kpiHealthCard');
+      const pctEl = document.getElementById('kpiCoveragePct');
+      const subEl = document.getElementById('kpiCoverageSub');
+
+      pctEl.textContent = `${pct}%`;
+      subEl.textContent = `${coveredBrandDays}/${totalBrandDays} Brand-Days Met`;
+
+      if (pct === 100 && DB.conflicts.hard.length === 0) {
+        healthCard.className = 'p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200';
+        pctEl.className = 'text-base font-extrabold text-emerald-800 mt-0.5';
+        subEl.className = 'text-[11px] text-emerald-600';
+      } else {
+        healthCard.className = 'p-2.5 rounded-xl bg-amber-50/80 border border-amber-300';
+        pctEl.className = 'text-base font-extrabold text-amber-800 mt-0.5';
+        subEl.className = 'text-[11px] text-amber-700 font-semibold';
+      }
+
+      const hardLen = DB.conflicts.hard.length;
+      const softLen = DB.conflicts.soft.length;
+      document.getElementById('kpiHardConflicts').textContent = hardLen;
+      document.getElementById('kpiSoftWarnings').textContent = softLen;
+      document.getElementById('navConflictBadge').textContent = hardLen;
+      document.getElementById('navConflictBadge').className = hardLen > 0
+        ? 'px-1.5 py-0.2 rounded-full text-[11px] bg-rose-500 text-white font-bold animate-pulse'
+        : 'px-1.5 py-0.2 rounded-full text-[11px] bg-emerald-600 text-white font-bold';
+
+      const banner = document.getElementById('liveConflictBanner');
+      if (hardLen > 0) {
+        banner.classList.remove('hidden');
+        document.getElementById('liveConflictBannerTitle').textContent = `${hardLen} Critical Coverage Gap(s) Detected Across Active Brands!`;
+        const sample = DB.conflicts.hard[0];
+        document.getElementById('liveConflictBannerDesc').textContent =
+          `Example: ${sample.brandName} (${sample.operatingCalendar}) has unmet process coverage on ${getMonthShortName()} ${sample.day} (${sample.dowName}) — ${sample.reason}.`;
+      } else {
+        banner.classList.add('hidden');
+      }
+
+      renderHolidayPills();
+    }
+
+    function renderHolidayPills() {
+      const container = document.getElementById('holidayPillsContainer');
+      const cfg = MONTH_CONFIGS[CURRENT_MONTH_KEY] || MONTH_CONFIGS['2026-11'];
+      const holidayLabels = cfg.holidayLabels || {};
+      const candidateDays = Object.keys(holidayLabels).map(Number);
+      DB.publicHolidays.forEach(d => {
+        if (!candidateDays.includes(d)) candidateDays.push(d);
+      });
+      candidateDays.sort((a, b) => a - b);
+
+      container.innerHTML = candidateDays.map(day => {
+        const active = DB.publicHolidays.includes(day);
+        const label = holidayLabels[day] || `${getMonthShortName()} ${day}`;
+        return `
+          <button onclick="togglePublicHoliday(${day})" class="px-2.5 py-1 rounded-full text-[11px] font-semibold transition flex items-center gap-1 ${
+            active
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+          }">
+            <i class="fa-solid ${active ? 'fa-check' : 'fa-plus'} text-[9px]"></i>
+            <span>${label}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function togglePublicHoliday(dayNum) {
+      const idx = DB.publicHolidays.indexOf(dayNum);
+      if (idx >= 0) {
+        DB.publicHolidays.splice(idx, 1);
+        showToast(`Removed ${getMonthShortName()} ${dayNum} from Public Holidays.`, 'slate');
+      } else {
+        DB.publicHolidays.push(dayNum);
+        showToast(`Added ${getMonthShortName()} ${dayNum} as a Public Holiday.`, 'purple');
+      }
+      validateEntireRoster();
+      saveState();
+      renderActiveStakeholderView();
+    }
+
+    function switchMainTab(tabName) {
+      activeMainTab = tabName;
+      ['roster', 'conflicts', 'database', 'architecture'].forEach(t => {
+        const viewEl = document.getElementById(`view-${t}`);
+        const btnEl = document.getElementById(`mainTab-${t}`);
+        if (t === tabName) {
+          viewEl.classList.remove('hidden');
+          btnEl.className = 'main-tab-btn px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 bg-indigo-600 text-white shadow';
+        } else {
+          viewEl.classList.add('hidden');
+          btnEl.className = 'main-tab-btn px-3.5 py-2 rounded-lg text-xs font-semibold transition flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700/60';
+        }
+      });
+
+      if (tabName === 'roster') renderActiveStakeholderView();
+      if (tabName === 'conflicts') renderConflictsTab();
+      if (tabName === 'database') renderDatabaseCRUDTab();
+    }
+
+    /***************************************************************************
+     * 8. STAKEHOLDER ROSTER VIEWS (Company, Pod, Brand, Process, Employee)
+     ***************************************************************************/
+    function switchStakeholderView(viewName) {
+      activeStakeholderView = viewName;
+      ['company', 'pod', 'brand', 'process', 'employee'].forEach(v => {
+        const btn = document.getElementById(`subViewBtn-${v}`);
+        if (v === viewName) {
+          btn.className = 'subview-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white transition shadow-xs';
+        } else {
+          btn.className = 'subview-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition';
+        }
+      });
+      renderStakeholderFilters();
+      renderActiveStakeholderView();
+    }
+
+    function renderStakeholderFilters() {
+      const container = document.getElementById('stakeholderFilterContainer');
+      if (activeStakeholderView === 'company') {
+        container.innerHTML = `
+          <span class="text-xs text-slate-500"><i class="fa-regular fa-hand-pointer mr-1 text-indigo-500"></i>Click any cell in the ${TOTAL_DAYS}-day grid to preview impact &amp; edit shift/leave.</span>
+        `;
+      } else if (activeStakeholderView === 'pod') {
+        container.innerHTML = `
+          <label class="text-xs font-semibold text-slate-600">Select Pod:</label>
+          <select onchange="selectedPodFilter=this.value; renderActiveStakeholderView()" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white">
+            <option value="ALL" ${selectedPodFilter === 'ALL' ? 'selected' : ''}>All ${DB.pods.length} Pods Overview</option>
+            ${DB.pods.map(p => `<option value="${p.id}" ${selectedPodFilter === p.id ? 'selected' : ''}>${p.name} — Lead: ${p.leadName}</option>`).join('')}
+          </select>
+        `;
+      } else if (activeStakeholderView === 'brand') {
+        container.innerHTML = `
+          <label class="text-xs font-semibold text-slate-600">Filter Brand:</label>
+          <select onchange="selectedBrandFilter=this.value; if(this.value!=='ALL'){inspectedBrandId=this.value;} renderActiveStakeholderView()" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white">
+            <option value="ALL" ${selectedBrandFilter === 'ALL' ? 'selected' : ''}>All ${DB.brands.length} Brands Coverage Matrix</option>
+            ${DB.brands.map(b => `<option value="${b.id}" ${selectedBrandFilter === b.id ? 'selected' : ''}>${b.name} (${b.staffingModel === 'SINGLE' ? 'Single-Resource' : 'Multi-Resource'} | ${b.operatingCalendar})</option>`).join('')}
+          </select>
+        `;
+      } else if (activeStakeholderView === 'process') {
+        container.innerHTML = `
+          <label class="text-xs font-semibold text-slate-600">Select Process:</label>
+          <div class="flex items-center gap-1">
+            ${['CS', 'ACC', 'NDR', 'RET'].map(proc => `
+              <button onclick="selectedProcessFilter='${proc}'; renderStakeholderFilters(); renderActiveStakeholderView()" class="px-3 py-1 rounded-lg text-xs font-bold ${
+                selectedProcessFilter === proc ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }">${proc}</button>
+            `).join('')}
+          </div>
+        `;
+      } else if (activeStakeholderView === 'employee') {
+        container.innerHTML = `
+          <label class="text-xs font-semibold text-slate-600">Select Employee:</label>
+          <select onchange="selectedEmployeeFilter=this.value; renderActiveStakeholderView()" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white">
+            ${DB.employees.map(e => `<option value="${e.id}" ${selectedEmployeeFilter === e.id ? 'selected' : ''}>${e.name} (${e.role.replace('_', ' ')})</option>`).join('')}
+          </select>
+        `;
+      }
+    }
+
+    function renderActiveStakeholderView() {
+      const viewport = document.getElementById('stakeholderViewport');
+      if (activeStakeholderView === 'company') {
+        viewport.innerHTML = renderEmployeeMatrixTable(DB.employees, `Company-Wide Master Roster (${DB.employees.length} Employees across ${DB.pods.length} Pods — ${MONTH_CONFIGS[CURRENT_MONTH_KEY].label})`);
+      } else if (activeStakeholderView === 'pod') {
+        const filteredEmps = selectedPodFilter === 'ALL'
+          ? DB.employees
+          : DB.employees.filter(e => e.podId === selectedPodFilter);
+        const podObj = DB.pods.find(p => p.id === selectedPodFilter);
+        const title = podObj ? `${podObj.name} — Pod Lead: ${podObj.leadName}` : 'All Operational Pods Schedule';
+        viewport.innerHTML = renderPodSummaryBanner(selectedPodFilter) + renderEmployeeMatrixTable(filteredEmps, title);
+      } else if (activeStakeholderView === 'brand') {
+        viewport.innerHTML = renderBrandCoverageView();
+      } else if (activeStakeholderView === 'process') {
+        viewport.innerHTML = renderProcessCoverageView(selectedProcessFilter);
+      } else if (activeStakeholderView === 'employee') {
+        viewport.innerHTML = renderIndividualEmployeeCalendar(selectedEmployeeFilter);
+      }
+    }
+
+    function getCellBadgeConfig(cell) {
+      if (!cell) return { code: '-', bg: 'bg-slate-100 text-slate-400', title: 'Unassigned' };
+      switch (cell.status) {
+        case 'WORK':
+          return { code: 'W', bg: 'bg-emerald-500 text-white font-bold', title: `WORK: ${cell.note || ''}` };
+        case 'BACKUP': {
+          const bName = DB.brands.find(b => b.id === cell.backupBrandId)?.name || cell.backupBrandId;
+          return { code: 'BK', bg: 'bg-sky-500 text-white font-bold ring-2 ring-sky-200', title: `BACKUP covering ${bName}` };
+        }
+        case 'WEEK_OFF':
+          return { code: 'WO', bg: 'bg-slate-200 text-slate-600 font-semibold', title: `WEEK_OFF: ${cell.note || ''}` };
+        case 'HOLIDAY':
+          return { code: 'PH', bg: 'bg-purple-500 text-white font-bold', title: `PUBLIC HOLIDAY: ${cell.note || ''}` };
+        case 'LEAVE':
+          return { code: 'LV', bg: 'bg-amber-500 text-slate-950 font-extrabold', title: `PLANNED LEAVE: ${cell.note || ''}` };
+        case 'COMP_OFF':
+          return { code: 'CO', bg: 'bg-teal-500 text-white font-bold', title: `COMP_OFF: ${cell.note || ''}` };
+        default:
+          return { code: '-', bg: 'bg-slate-100 text-slate-500', title: '' };
+      }
+    }
+
+    // 1 & 2. Company-Wide and Pod-Wise Interactive Matrix Table
+    function renderEmployeeMatrixTable(employeesList, headerTitle) {
+      const mShort = getMonthShortName();
+      let daysHeaderHTML = '';
+      for (let d = 1; d <= TOTAL_DAYS; d++) {
+        const dow = getDayOfWeek(d);
+        const isSun = dow === 0;
+        const isHol = DB.publicHolidays.includes(d);
+        const hasHardGapOnDay = DB.conflicts.hard.some(h => h.day === d);
+        daysHeaderHTML += `
+          <th class="px-1 py-2 text-center border-b border-r border-slate-200 min-w-[34px] ${
+            isHol ? 'bg-purple-100 text-purple-900' : isSun ? 'bg-slate-200/80 text-slate-800' : 'bg-slate-50 text-slate-600'
+          }">
+            <div class="text-[10px] font-medium">${DAY_NAMES_SHORT[dow]}</div>
+            <div class="text-xs font-bold flex items-center justify-center gap-0.5">
+              <span>${d}</span>
+              ${hasHardGapOnDay ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-600 inline-block" title="Coverage gap on this day"></span>' : ''}
+            </div>
+          </th>
+        `;
+      }
+
+      let rowsHTML = '';
+      employeesList.forEach(emp => {
+        const pod = DB.pods.find(p => p.id === emp.podId);
+        const assignedText = emp.assignments.length > 0
+          ? emp.assignments.map(a => {
+              const b = DB.brands.find(br => br.id === a.brandId);
+              return `${b ? b.name : a.brandId} (${a.processes.join(',')})`;
+            }).join(' + ')
+          : 'Pod Float / All Pod Brands';
+
+        let workDaysCount = 0;
+        let offDaysCount = 0;
+        let cellsHTML = '';
+
+        for (let d = 1; d <= TOTAL_DAYS; d++) {
+          const cell = DB.roster[emp.id]?.[d];
+          const badge = getCellBadgeConfig(cell);
+          if (cell?.status === 'WORK' || cell?.status === 'BACKUP') workDaysCount++;
+          if (cell?.status === 'WEEK_OFF' || cell?.status === 'HOLIDAY') offDaysCount++;
+
+          cellsHTML += `
+            <td onclick="openCellModal('${emp.id}', ${d})" class="p-1 border-b border-r border-slate-100 text-center cursor-pointer">
+              <div class="roster-cell w-7 h-7 mx-auto rounded-md flex items-center justify-center text-[10px] ${badge.bg}" title="${emp.name} | ${mShort} ${d}: ${badge.title}">
+                ${badge.code}
+              </div>
+            </td>
+          `;
+        }
+
+        const roleBadge = emp.role === 'POD_LEAD'
+          ? '<span class="px-1.5 py-0.5 rounded text-[10px] bg-indigo-100 text-indigo-800 font-bold">Pod Lead</span>'
+          : emp.role === 'POD_FLOAT'
+          ? '<span class="px-1.5 py-0.5 rounded text-[10px] bg-sky-100 text-sky-800 font-bold">Pod Float</span>'
+          : emp.role === 'PROCESS_SPECIALIST'
+          ? `<span class="px-1.5 py-0.5 rounded text-[10px] bg-violet-100 text-violet-800 font-semibold">${emp.assignments.length > 1 ? 'Multi-Brand' : 'Specialist'}</span>`
+          : '<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 font-semibold">1-Brand Owner</span>';
+
+        rowsHTML += `
+          <tr class="hover:bg-slate-50/90 transition bg-white">
+            <td class="sticky-col-left px-3 py-2 border-b border-r border-slate-200 min-w-[250px] max-w-[270px]">
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-xs font-bold text-slate-900 truncate">${emp.name}</span>
+                ${roleBadge}
+              </div>
+              <div class="text-[11px] text-slate-500 truncate mt-0.5" title="${assignedText}">
+                <span class="font-semibold text-slate-600">${pod ? pod.name.split(' ')[1] : ''}:</span> ${assignedText}
+              </div>
+              <div class="text-[10px] text-slate-400 mt-0.5 flex items-center justify-between">
+                <span>Pref Off: <b>${DAY_NAMES_SHORT[emp.preferredWeekOff]}</b></span>
+                <span>Work: <b>${workDaysCount}d</b> | Off: <b>${offDaysCount}d</b></span>
+              </div>
+            </td>
+            ${cellsHTML}
+          </tr>
+        `;
+      });
+
+      return `
+        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">${headerTitle}</h3>
+            <p class="text-xs text-slate-500">Showing ${employeesList.length} employees across ${TOTAL_DAYS} days of ${MONTH_CONFIGS[CURRENT_MONTH_KEY].label}. Click any day cell to preview impact &amp; edit shift status.</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse text-left">
+            <thead>
+              <tr>
+                <th class="sticky-col-left px-3 py-2 bg-slate-100 border-b border-r border-slate-200 text-xs font-bold text-slate-700">
+                  Employee / Pod / Brand Assignment
+                </th>
+                ${daysHeaderHTML}
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderPodSummaryBanner(podIdFilter) {
+      const podsToShow = podIdFilter === 'ALL' ? DB.pods : DB.pods.filter(p => p.id === podIdFilter);
+      return `
+        <div class="p-4 bg-slate-50/70 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          ${podsToShow.map(pod => {
+            const podEmps = DB.employees.filter(e => e.podId === pod.id);
+            const podBrands = DB.brands.filter(b => b.podId === pod.id);
+            const podConflicts = DB.conflicts.hard.filter(c => c.podId === pod.id);
+            return `
+              <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900">${pod.name}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${podConflicts.length > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
+                    ${podConflicts.length > 0 ? `${podConflicts.length} Gaps` : '100% Covered'}
+                  </span>
+                </div>
+                <div class="text-xs text-slate-600 mt-1">Pod Lead: <b>${pod.leadName}</b></div>
+                <div class="text-[11px] text-slate-500 mt-1 flex justify-between">
+                  <span>Staff: <b>${podEmps.length}</b></span>
+                  <span>Brands: <b>${podBrands.length}</b> (${podBrands.filter(b => b.staffingModel === 'SINGLE').length} Single, ${podBrands.filter(b => b.staffingModel === 'MULTI').length} Multi)</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    // 3. Enhanced Brand-Wise Coverage & Brand Calendar vs. Employee Schedule Breakdown (Section 3B & 3E)
+    function renderBrandCoverageView() {
+      const mShort = getMonthShortName();
+      const brandsToRender = selectedBrandFilter === 'ALL'
+        ? DB.brands
+        : DB.brands.filter(b => b.id === selectedBrandFilter);
+
+      let daysHeaderHTML = '';
+      for (let d = 1; d <= TOTAL_DAYS; d++) {
+        const dow = getDayOfWeek(d);
+        const isHol = DB.publicHolidays.includes(d);
+        daysHeaderHTML += `
+          <th class="px-1 py-2 text-center border-b border-r border-slate-200 min-w-[36px] ${
+            isHol ? 'bg-purple-100 text-purple-900' : dow === 0 ? 'bg-slate-200 text-slate-800' : 'bg-slate-50 text-slate-600'
+          }">
+            <div class="text-[10px]">${DAY_NAMES_SHORT[dow]}</div>
+            <div class="text-xs font-bold">${d}</div>
+          </th>
+        `;
+      }
+
+      let rowsHTML = '';
+      brandsToRender.forEach(brand => {
+        const assignedEmps = DB.employees.filter(e => e.assignments.some(a => a.brandId === brand.id));
+        const calBadge = brand.operatingCalendar === '365_DAYS'
+          ? '<span class="px-1.5 py-0.5 rounded text-[10px] bg-rose-100 text-rose-800 font-bold">365_DAYS</span>'
+          : brand.operatingCalendar === 'NO_PUBLIC_HOLIDAYS'
+          ? '<span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 font-bold">NO_HOLIDAYS</span>'
+          : '<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-200 text-slate-700 font-bold">MON_SAT</span>';
+
+        let dayCells = '';
+        for (let d = 1; d <= TOTAL_DAYS; d++) {
+          const activeProcs = ['CS', 'ACC', 'NDR', 'RET'].filter(p => getRequiredProcessStaff(brand, p, d, DB.publicHolidays) > 0);
+          if (activeProcs.length === 0) {
+            dayCells += `
+              <td class="p-1 border-b border-r border-slate-100 text-center bg-slate-50">
+                <div class="w-7 h-7 mx-auto rounded flex items-center justify-center text-[10px] text-slate-400 font-medium" title="${brand.name} Operating Calendar CLOSED on ${mShort} ${d}">OFF</div>
+              </td>
+            `;
+            continue;
+          }
+
+          let allMet = true;
+          let backupUsed = false;
+          let tooltipLines = [`${brand.name} (${mShort} ${d}):`];
+
+          activeProcs.forEach(p => {
+            const req = getRequiredProcessStaff(brand, p, d, DB.publicHolidays);
+            const staff = getWorkingStaffForBrandProcess(brand.id, p, d);
+            if (staff.length < req) allMet = false;
+            if (staff.some(s => DB.roster[s.id]?.[d]?.status === 'BACKUP')) backupUsed = true;
+            tooltipLines.push(`${p}: ${staff.length}/${req} (${staff.map(s => s.name.split(' ')[0]).join(', ') || 'NONE!'})`);
+          });
+
+          if (!allMet) {
+            dayCells += `
+              <td onclick="inspectedBrandId='${brand.id}'; switchMainTab('conflicts')" class="p-1 border-b border-r border-slate-100 text-center cursor-pointer">
+                <div class="conflict-pulse w-7 h-7 mx-auto rounded-md bg-rose-600 text-white font-extrabold text-[10px] flex items-center justify-center" title="${tooltipLines.join('&#10;')}&#10;Click to resolve gap!">
+                  GAP
+                </div>
+              </td>
+            `;
+          } else if (backupUsed) {
+            dayCells += `
+              <td onclick="inspectBrandDrilldown('${brand.id}')" class="p-1 border-b border-r border-slate-100 text-center cursor-pointer">
+                <div class="w-7 h-7 mx-auto rounded-md bg-sky-500 text-white font-bold text-[10px] flex items-center justify-center" title="${tooltipLines.join('&#10;')} (Pod Backup Active — Click to inspect)">
+                  BK
+                </div>
+              </td>
+            `;
+          } else {
+            dayCells += `
+              <td onclick="inspectBrandDrilldown('${brand.id}')" class="p-1 border-b border-r border-slate-100 text-center cursor-pointer">
+                <div class="w-7 h-7 mx-auto rounded-md bg-emerald-500 text-white font-bold text-[10px] flex items-center justify-center" title="${tooltipLines.join('&#10;')} (Click to inspect brand drilldown)">
+                  OK
+                </div>
+              </td>
+            `;
+          }
+        }
+
+        const isSelected = inspectedBrandId === brand.id;
+        rowsHTML += `
+          <tr onclick="inspectBrandDrilldown('${brand.id}')" class="cursor-pointer transition ${isSelected ? 'bg-indigo-50/70' : 'bg-white hover:bg-slate-50'}">
+            <td class="sticky-col-left px-3 py-2.5 border-b border-r border-slate-200 min-w-[265px]">
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  ${isSelected ? '<i class="fa-solid fa-caret-right text-indigo-600"></i>' : ''}
+                  ${brand.name}
+                </span>
+                ${calBadge}
+              </div>
+              <div class="text-[11px] text-slate-500 mt-0.5">
+                Model: <b>${brand.staffingModel === 'SINGLE' ? '1 Dedicated Owner' : 'Multi-Specialist'}</b>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate mt-0.5" title="${assignedEmps.map(e => e.name).join(', ')}">
+                Team: ${assignedEmps.map(e => e.name).join(', ')}
+              </div>
+            </td>
+            ${dayCells}
+          </tr>
+        `;
+      });
+
+      const drilldownBrand = DB.brands.find(b => b.id === inspectedBrandId) || brandsToRender[0] || DB.brands[0];
+
+      return `
+        ${renderBrandVsEmployeeDrilldown(drilldownBrand, daysHeaderHTML)}
+        <div class="px-4 py-3 bg-slate-50 border-t border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">All Brands Daily SLA Coverage Matrix (Click any brand row to inspect above)</h3>
+            <p class="text-xs text-slate-500"><b>OK</b> (Green) = Covered by Primary Team | <b>BK</b> (Blue) = Covered by Pod Backup | <b>GAP</b> (Red) = Unmet Process Staffing | <b>OFF</b> = Client Non-Operating Day</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse text-left">
+            <thead>
+              <tr>
+                <th class="sticky-col-left px-3 py-2 bg-slate-100 border-b border-r border-slate-200 text-xs font-bold text-slate-700">
+                  Brand / Operating Calendar / Assigned Team
+                </th>
+                ${daysHeaderHTML}
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function inspectBrandDrilldown(brandId) {
+      inspectedBrandId = brandId;
+      renderActiveStakeholderView();
+    }
+
+    // Distinguishes Brand Operating Calendar vs. Individual Employee Working Schedule (Requirement 3B & 3E)
+    function renderBrandVsEmployeeDrilldown(brand, daysHeaderHTML) {
+      if (!brand) return '';
+      const mShort = getMonthShortName();
+      const pod = DB.pods.find(p => p.id === brand.podId);
+
+      // 1. Process Operating Calendar & Daily Coverage Rows
+      let processRowsHTML = '';
+      ['CS', 'ACC', 'NDR', 'RET'].forEach(procCode => {
+        const pRule = brand.processes[procCode];
+        if (!pRule || !pRule.active) return;
+
+        let cells = '';
+        for (let d = 1; d <= TOTAL_DAYS; d++) {
+          const req = getRequiredProcessStaff(brand, procCode, d, DB.publicHolidays);
+          if (req === 0) {
+            cells += `<td class="p-1 border-b border-r border-slate-100 text-center bg-slate-50 text-[10px] text-slate-400" title="${procCode} Closed (${pRule.calendar})">OFF</td>`;
+          } else {
+            const working = getWorkingStaffForBrandProcess(brand.id, procCode, d);
+            const ok = working.length >= req;
+            const hasBackup = working.some(w => DB.roster[w.id]?.[d]?.status === 'BACKUP');
+            cells += `
+              <td class="p-1 border-b border-r border-slate-100 text-center">
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  !ok ? 'bg-rose-600 text-white conflict-pulse' : hasBackup ? 'bg-sky-500 text-white' : 'bg-emerald-100 text-emerald-800'
+                }" title="${brand.name} ${procCode} (${mShort} ${d}): ${working.map(w => w.name).join(', ') || 'UNCOVERED!'}">
+                  ${working.length}/${req}
+                </span>
+              </td>
+            `;
+          }
+        }
+
+        processRowsHTML += `
+          <tr class="bg-white">
+            <td class="sticky-col-left px-3 py-2 border-b border-r border-slate-200 min-w-[265px]">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-indigo-950"><i class="fa-solid fa-gear text-indigo-500 mr-1"></i>Process: ${procCode}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] bg-indigo-50 text-indigo-700 font-semibold">${pRule.calendar}</span>
+              </div>
+              <div class="text-[10px] text-slate-500">Min Staff: Weekday ${pRule.minStaffWeekday} | Sun/Hol ${pRule.minStaffSunday}</div>
+            </td>
+            ${cells}
+          </tr>
+        `;
+      });
+
+      // 2. Assigned Primary Employees + Any Pod Backup Employees who covered this brand
+      const primaryEmps = DB.employees.filter(e => e.assignments.some(a => a.brandId === brand.id));
+      const backupEmps = DB.employees.filter(e =>
+        !primaryEmps.some(pe => pe.id === e.id) &&
+        Object.values(DB.roster[e.id] || {}).some(c => c.status === 'BACKUP' && c.backupBrandId === brand.id)
+      );
+      const allRelevantEmps = [...primaryEmps, ...backupEmps];
+
+      let empRowsHTML = '';
+      allRelevantEmps.forEach(emp => {
+        const assignForBrand = emp.assignments.find(a => a.brandId === brand.id);
+        const isPrimary = Boolean(assignForBrand);
+        let cells = '';
+
+        for (let d = 1; d <= TOTAL_DAYS; d++) {
+          const cell = DB.roster[emp.id]?.[d];
+          const badge = getCellBadgeConfig(cell);
+          const isCoveringThisBrand = (isPrimary && cell?.status === 'WORK') || (cell?.status === 'BACKUP' && cell?.backupBrandId === brand.id);
+          cells += `
+            <td onclick="openCellModal('${emp.id}', ${d})" class="p-1 border-b border-r border-slate-100 text-center cursor-pointer ${isCoveringThisBrand ? '' : 'opacity-65'}">
+              <div class="roster-cell w-7 h-7 mx-auto rounded-md flex items-center justify-center text-[10px] ${badge.bg}" title="${emp.name} (${mShort} ${d}): ${badge.title}">
+                ${badge.code}
+              </div>
+            </td>
+          `;
+        }
+
+        empRowsHTML += `
+          <tr class="bg-white hover:bg-slate-50">
+            <td class="sticky-col-left px-3 py-2 border-b border-r border-slate-200 min-w-[265px]">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-900">${emp.name}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${isPrimary ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-100 text-sky-800'}">
+                  ${isPrimary ? `Primary (${assignForBrand.processes.join(',')})` : 'Pod Backup Float'}
+                </span>
+              </div>
+              <div class="text-[10px] text-slate-500">Individual Schedule | Pref Off: <b>${DAY_NAMES_SHORT[emp.preferredWeekOff]}</b></div>
+            </td>
+            ${cells}
+          </tr>
+        `;
+      });
+
+      return `
+        <div class="bg-indigo-950 text-white px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">Section 3B &amp; 3E Drilldown</span>
+              <h3 class="text-sm font-bold">${brand.name} — Brand Operating Calendar vs. Individual Employee Working Schedules</h3>
+            </div>
+            <p class="text-xs text-indigo-200 mt-0.5">
+              ${pod ? pod.name : ''} | Staffing Model: <b>${brand.staffingModel}</b> | Default Rule: <b>${brand.operatingCalendar}</b>. Click any employee cell below to test schedule changes.
+            </p>
+          </div>
+        </div>
+        <div class="overflow-x-auto mb-2">
+          <table class="w-full border-collapse text-left">
+            <thead>
+              <tr>
+                <th class="sticky-col-left px-3 py-2 bg-slate-100 border-b border-r border-slate-200 text-xs font-bold text-slate-700">
+                  1. Brand Process Operating Calendar &amp; Daily SLA<br>
+                  <span class="text-[10px] font-normal text-slate-500">2. Assigned &amp; Backup Employee Working Schedules</span>
+                </th>
+                ${daysHeaderHTML}
+              </tr>
+            </thead>
+            <tbody>
+              ${processRowsHTML}
+              ${empRowsHTML}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // 4. Process-Wise Coverage View (CS, ACC, NDR, RET across all 20 brands)
+    function renderProcessCoverageView(procCode) {
+      const procNames = {
+        CS: 'Customer Support (CS)',
+        ACC: 'Abandoned Cart Conversion (ACC)',
+        NDR: 'Non-Delivery Report Management (NDR)',
+        RET: 'Retention & VIP Outreach (RET)'
+      };
+
+      const activeBrandsForProc = DB.brands.filter(b => b.processes[procCode]?.active);
+
+      let daysHeaderHTML = '';
+      for (let d = 1; d <= TOTAL_DAYS; d++) {
+        const dow = getDayOfWeek(d);
+        daysHeaderHTML += `
+          <th class="px-1 py-2 text-center border-b border-r border-slate-200 min-w-[36px] bg-slate-50 text-slate-600">
+            <div class="text-[10px]">${DAY_NAMES_SHORT[dow]}</div>
+            <div class="text-xs font-bold">${d}</div>
+          </th>
+        `;
+      }
+
+      let rowsHTML = '';
+      activeBrandsForProc.forEach(brand => {
+        const pRule = brand.processes[procCode];
+        let cells = '';
+        for (let d = 1; d <= TOTAL_DAYS; d++) {
+          const req = getRequiredProcessStaff(brand, procCode, d, DB.publicHolidays);
+          if (req === 0) {
+            cells += `<td class="p-1 border-b border-r border-slate-100 text-center text-[10px] text-slate-300 bg-slate-50">OFF</td>`;
+          } else {
+            const working = getWorkingStaffForBrandProcess(brand.id, procCode, d);
+            const actual = working.length;
+            const ok = actual >= req;
+            cells += `
+              <td class="p-1 border-b border-r border-slate-100 text-center" title="${brand.name} ${procCode}: ${working.map(w => w.name).join(', ') || 'None'}">
+                <span class="px-1.5 py-1 rounded text-[10px] font-bold ${ok ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-600 text-white'}">
+                  ${actual}/${req}
+                </span>
+              </td>
+            `;
+          }
+        }
+
+        rowsHTML += `
+          <tr class="bg-white hover:bg-slate-50">
+            <td class="sticky-col-left px-3 py-2 border-b border-r border-slate-200 min-w-[230px]">
+              <div class="text-xs font-bold text-slate-900">${brand.name}</div>
+              <div class="text-[10px] text-slate-500">Rule: ${pRule.calendar} | Wkday Min: ${pRule.minStaffWeekday} | Sun Min: ${pRule.minStaffSunday}</div>
+            </td>
+            ${cells}
+          </tr>
+        `;
+      });
+
+      return `
+        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200">
+          <h3 class="text-sm font-bold text-slate-900">Process-Wise Staffing Matrix: ${procNames[procCode]}</h3>
+          <p class="text-xs text-slate-500">Showing daily <code>Actual / Required</code> headcount across ${activeBrandsForProc.length} brands running ${procCode} in ${MONTH_CONFIGS[CURRENT_MONTH_KEY].label}.</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse text-left">
+            <thead>
+              <tr>
+                <th class="sticky-col-left px-3 py-2 bg-slate-100 border-b border-r border-slate-200 text-xs font-bold text-slate-700">Brand &amp; Process Rule</th>
+                ${daysHeaderHTML}
+              </tr>
+            </thead>
+            <tbody>${rowsHTML}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // 5. Employee-Wise Individual Monthly Calendar View
+    function renderIndividualEmployeeCalendar(empId) {
+      const emp = DB.employees.find(e => e.id === empId) || DB.employees[0];
+      const pod = DB.pods.find(p => p.id === emp.podId);
+      const mShort = getMonthShortName();
+
+      let counts = { WORK: 0, BACKUP: 0, WEEK_OFF: 0, HOLIDAY: 0, LEAVE: 0, COMP_OFF: 0 };
+      let calendarCellsHTML = '';
+
+      for (let d = 1; d <= TOTAL_DAYS; d++) {
+        const cell = DB.roster[emp.id]?.[d];
+        if (cell && counts[cell.status] !== undefined) counts[cell.status]++;
+        const badge = getCellBadgeConfig(cell);
+        const dow = getDayOfWeek(d);
+        const bName = cell?.backupBrandId ? (DB.brands.find(b => b.id === cell.backupBrandId)?.name || '') : '';
+
+        calendarCellsHTML += `
+          <div onclick="openCellModal('${emp.id}', ${d})" class="p-3 rounded-xl border border-slate-200 hover:border-indigo-400 bg-white shadow-2xs cursor-pointer transition flex flex-col justify-between min-h-[88px]">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-700">${mShort} ${d} <span class="text-[10px] font-normal text-slate-400">(${DAY_NAMES_SHORT[dow]})</span></span>
+              <span class="px-2 py-0.5 rounded text-[10px] ${badge.bg}">${cell?.status || '-'}</span>
+            </div>
+            <div class="text-[11px] text-slate-500 mt-2 leading-tight">
+              ${bName ? `<b class="text-sky-700">Backup: ${bName}</b>` : (cell?.note || '')}
+            </div>
+          </div>
+        `;
+      }
+
+      const assignSummary = emp.assignments.length > 0
+        ? emp.assignments.map(a => {
+            const b = DB.brands.find(br => br.id === a.brandId);
+            return `${b ? b.name : a.brandId} (${a.processes.join(',')})`;
+          }).join(' + ')
+        : 'Pod Float / All Pod Brands';
+
+      return `
+        <div class="p-5 space-y-5">
+          <div class="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600">${pod ? pod.name : emp.podId}</span>
+              <h3 class="text-lg font-bold text-slate-900">${emp.name}</h3>
+              <p class="text-xs text-slate-500">
+                Role: <b>${emp.role}</b> | Assignments: <b>${assignSummary}</b> | Preferred Weekly Off: <b>${DAY_NAMES_FULL[emp.preferredWeekOff]}</b>
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <div class="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">Primary Work: <b>${counts.WORK}d</b></div>
+              <div class="px-3 py-2 rounded-xl bg-sky-50 border border-sky-200 text-sky-900">Pod Backups: <b>${counts.BACKUP}d</b></div>
+              <div class="px-3 py-2 rounded-xl bg-slate-100 border border-slate-300 text-slate-800">Weekly Offs: <b>${counts.WEEK_OFF}d</b></div>
+              <div class="px-3 py-2 rounded-xl bg-purple-50 border border-purple-200 text-purple-900">Holidays: <b>${counts.HOLIDAY}d</b></div>
+              <div class="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">Leaves: <b>${counts.LEAVE}d</b></div>
+              <div class="px-3 py-2 rounded-xl bg-teal-50 border border-teal-200 text-teal-900">Comp-Offs: <b>${counts.COMP_OFF}d</b></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
+            ${calendarCellsHTML}
+          </div>
+        </div>
+      `;
+    }
+
+    /***************************************************************************
+     * 9. INTERACTIVE CELL MODAL WITH REAL-TIME IMPACT PREVIEW (Sec 3E & 3F)
+     ***************************************************************************/
+    function openCellModal(empId, dayNum) {
+      editingCellContext = { empId, dayNum };
+      const emp = DB.employees.find(e => e.id === empId);
+      const pod = DB.pods.find(p => p.id === emp.podId);
+      if (!emp) return;
+
+      const mShort = getMonthShortName();
+      document.getElementById('modalEmpPod').textContent = pod ? pod.name : emp.podId;
+      document.getElementById('modalEmpName').textContent = emp.name;
+      document.getElementById('modalDateSubtitle').textContent = `Date: ${DAY_NAMES_FULL[getDayOfWeek(dayNum)]}, ${mShort} ${dayNum}, ${YEAR}`;
+
+      const assignStr = emp.assignments.length > 0
+        ? emp.assignments.map(a => {
+            const b = DB.brands.find(br => br.id === a.brandId);
+            return `${b ? b.name : a.brandId} (${a.processes.join(',')})`;
+          }).join(' + ')
+        : 'Pod Float / All Pod Brands';
+      document.getElementById('modalPrimaryAssign').textContent = assignStr;
+      document.getElementById('modalPrefOff').textContent = DAY_NAMES_FULL[emp.preferredWeekOff];
+
+      const backupSelect = document.getElementById('modalBackupBrandSelect');
+      backupSelect.innerHTML = DB.brands.map(b => `<option value="${b.id}">${b.name} (${b.podId.replace('POD_', '')})</option>`).join('');
+
+      // Compute Real-Time Change Impact Analysis if this employee is marked unavailable on `dayNum`
+      renderModalImpactPreview(emp, dayNum);
+
+      document.getElementById('cellEditorModal').classList.remove('hidden');
+    }
+
+    function renderModalImpactPreview(emp, dayNum) {
+      const previewBox = document.getElementById('modalImpactPreviewBox');
+      const mShort = getMonthShortName();
+      const currentCell = DB.roster[emp.id]?.[dayNum];
+
+      // Simulate what happens if `emp` is NOT working on `dayNum`
+      const impactedItems = [];
+      const stayedCoveredItems = [];
+
+      emp.assignments.forEach(assign => {
+        const brand = DB.brands.find(b => b.id === assign.brandId);
+        if (!brand) return;
+        assign.processes.forEach(procCode => {
+          const req = getRequiredProcessStaff(brand, procCode, dayNum, DB.publicHolidays);
+          if (req > 0) {
+            const otherWorking = getWorkingStaffForBrandProcess(brand.id, procCode, dayNum).filter(w => w.id !== emp.id);
+            if (otherWorking.length < req) {
+              impactedItems.push({
+                brandId: brand.id,
+                brandName: brand.name,
+                procCode,
+                afterCount: otherWorking.length,
+                req
+              });
+            } else {
+              stayedCoveredItems.push(`${brand.name} (${procCode}: ${otherWorking.length}/${req})`);
+            }
+          }
+        });
+      });
+
+      // Also check if this employee is currently a BACKUP for a brand today
+      if (currentCell?.status === 'BACKUP' && currentCell.backupBrandId) {
+        const bBrand = DB.brands.find(b => b.id === currentCell.backupBrandId);
+        if (bBrand) {
+          impactedItems.push({
+            brandId: bBrand.id,
+            brandName: bBrand.name,
+            procCode: 'BACKUP_SHIFT',
+            afterCount: 0,
+            req: 1
+          });
+        }
+      }
+
+      const candidate = findAvailableBackupCandidate(emp.podId, dayNum);
+
+      if (impactedItems.length === 0) {
+        previewBox.className = 'p-3 rounded-xl border border-emerald-200 bg-emerald-50/70 text-xs space-y-1';
+        previewBox.innerHTML = `
+          <div class="font-bold text-emerald-900 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+            <span>Live Impact Analysis: Safe to Mark Off / Leave</span>
+          </div>
+          <p class="text-[11px] text-emerald-700">
+            Marking <b>${emp.name}</b> unavailable on ${mShort} ${dayNum} will NOT create any coverage gaps${stayedCoveredItems.length > 0 ? ` (Remaining team covers: ${stayedCoveredItems.join(', ')})` : ' (Assigned brand processes are closed or already covered)'}.
+          </p>
+        `;
+      } else {
+        const affectedBrands = [...new Set(impactedItems.map(i => i.brandName))];
+        const firstBrandId = impactedItems[0].brandId;
+        previewBox.className = 'p-3 rounded-xl border border-rose-300 bg-rose-50/80 text-xs space-y-2';
+        previewBox.innerHTML = `
+          <div class="font-bold text-rose-950 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <i class="fa-solid fa-triangle-exclamation text-rose-600"></i>
+              <span>Coverage Impact Alert (${affectedBrands.length > 1 ? 'Multi-Brand Cascade!' : 'SLA Gap Risk'})</span>
+            </span>
+          </div>
+          <p class="text-[11px] text-rose-800 leading-relaxed">
+            If <b>${emp.name}</b> is unavailable on ${mShort} ${dayNum}, coverage drops below minimum SLA on:
+            <b>${impactedItems.map(i => `${i.brandName} [${i.procCode}: ${i.afterCount}/${i.req}]`).join(', ')}</b>.
+            ${stayedCoveredItems.length > 0 ? `<br><span class="text-emerald-700 font-medium">Still covered by remaining team: ${stayedCoveredItems.join(', ')}</span>` : ''}
+          </p>
+          ${
+            candidate && candidate.id !== emp.id
+              ? `<button type="button" onclick="applyLeaveAndAssignBackupInOneClick('${emp.id}', ${dayNum}, '${firstBrandId}', '${candidate.id}')" class="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5">
+                   <i class="fa-solid fa-user-shield"></i> Mark LEAVE &amp; Auto-Assign Backup (${candidate.name})
+                 </button>`
+              : `<div class="text-[11px] font-semibold text-rose-700">No free Pod Floater on ${mShort} ${dayNum} — marking Leave will flag a Hard Conflict for manager review.</div>`
+          }
+        `;
+      }
+    }
+
+    function applyLeaveAndAssignBackupInOneClick(empId, dayNum, brandId, backupEmpId) {
+      const emp = DB.employees.find(e => e.id === empId);
+      const backupEmp = DB.employees.find(e => e.id === backupEmpId);
+      const brand = DB.brands.find(b => b.id === brandId);
+      if (!emp || !backupEmp || !brand) return;
+
+      if (!emp.plannedLeaves.includes(dayNum)) emp.plannedLeaves.push(dayNum);
+      DB.roster[empId][dayNum] = { status: 'LEAVE', backupBrandId: null, note: 'Approved Leave (Covered by Backup)' };
+      DB.roster[backupEmpId][dayNum] = { status: 'BACKUP', backupBrandId: brandId, note: `Pod Backup for ${brand.name}` };
+
+      closeCellModal();
+      validateEntireRoster();
+      saveState();
+      renderActiveStakeholderView();
+      showToast(`Marked ${emp.name} on LEAVE & assigned ${backupEmp.name} as Backup for ${brand.name} on ${getMonthShortName()} ${dayNum}!`, 'emerald');
+    }
+
+    function closeCellModal() {
+      document.getElementById('cellEditorModal').classList.add('hidden');
+      editingCellContext = null;
+    }
+
+    function applyCellStatus(newStatus) {
+      if (!editingCellContext) return;
+      const { empId, dayNum } = editingCellContext;
+      const emp = DB.employees.find(e => e.id === empId);
+
+      emp.plannedLeaves = (emp.plannedLeaves || []).filter(d => d !== dayNum);
+      emp.compOffs = (emp.compOffs || []).filter(d => d !== dayNum);
+      if (newStatus === 'LEAVE') emp.plannedLeaves.push(dayNum);
+      if (newStatus === 'COMP_OFF') emp.compOffs.push(dayNum);
+
+      DB.roster[empId][dayNum] = {
+        status: newStatus,
+        backupBrandId: null,
+        note: `Manual Manager Edit (${newStatus})`
+      };
+
+      closeCellModal();
+      validateEntireRoster();
+      saveState();
+      renderActiveStakeholderView();
+      showToast(`Updated ${emp.name} on ${getMonthShortName()} ${dayNum} to ${newStatus}. Roster re-validated!`, 'indigo');
+    }
+
+    function applyCellBackupStatus() {
+      if (!editingCellContext) return;
+      const { empId, dayNum } = editingCellContext;
+      const backupBrandId = document.getElementById('modalBackupBrandSelect').value;
+      const brand = DB.brands.find(b => b.id === backupBrandId);
+      const emp = DB.employees.find(e => e.id === empId);
+
+      DB.roster[empId][dayNum] = {
+        status: 'BACKUP',
+        backupBrandId,
+        note: `Manual Pod Backup for ${brand ? brand.name : backupBrandId}`
+      };
+
+      closeCellModal();
+      validateEntireRoster();
+      saveState();
+      renderActiveStakeholderView();
+      showToast(`Assigned ${emp.name} as Backup for ${brand.name} on ${getMonthShortName()} ${dayNum}.`, 'sky');
+    }
+
+    /***************************************************************************
+     * 10. CONFLICT VALIDATOR TAB RENDERER
+     ***************************************************************************/
+    function renderConflictsTab() {
+      const hardList = document.getElementById('hardConflictsList');
+      const softList = document.getElementById('softWarningsList');
+      const mShort = getMonthShortName();
+      document.getElementById('hardConflictCountPill').textContent = DB.conflicts.hard.length;
+      document.getElementById('softWarningCountPill').textContent = DB.conflicts.soft.length;
+
+      if (DB.conflicts.hard.length === 0) {
+        hardList.innerHTML = `
+          <div class="p-8 text-center text-emerald-700 bg-emerald-50/50 rounded-xl border border-emerald-200">
+            <i class="fa-solid fa-circle-check text-3xl text-emerald-500 mb-2"></i>
+            <div class="text-sm font-bold">Zero Mandatory Coverage Gaps!</div>
+            <p class="text-xs text-emerald-600 mt-1">All ${DB.brands.length} brands and processes meet their minimum daily staffing requirements across all ${TOTAL_DAYS} days of ${MONTH_CONFIGS[CURRENT_MONTH_KEY].label}.</p>
+          </div>
+        `;
+      } else {
+        hardList.innerHTML = DB.conflicts.hard.map(gap => {
+          const missingBadges = gap.missingProcs.map(m =>
+            `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[11px]">${m.procCode}: ${m.actual}/${m.req}</span>`
+          ).join(' ');
+
+          const typeBadge = gap.type === 'MULTI_BRAND_CASCADE_GAP'
+            ? `<span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-bold text-[10px]">Multi-Brand Cascade</span>`
+            : gap.type === 'OVERLAPPING_SHIFT'
+            ? `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[10px]">Overlapping Shift</span>`
+            : `<span class="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-bold text-[10px]">${gap.operatingCalendar}</span>`;
+
+          const actionBtn = gap.recommendedBackup
+            ? `<button onclick="assignBackupToResolveConflict('${gap.brandId}', ${gap.day}, '${gap.recommendedBackup.id}')" class="mt-2.5 w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5">
+                 <i class="fa-solid fa-user-check"></i> 1-Click Assign Backup: ${gap.recommendedBackup.name}
+               </button>`
+            : `<div class="mt-2 text-[11px] text-rose-700 font-semibold">No free Pod Floater on ${mShort} ${gap.day} — click any employee cell on ${mShort} ${gap.day} to manually reallocate.</div>`;
+
+          return `
+            <div class="p-3.5 rounded-xl bg-rose-50/40 border border-rose-200">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-extrabold text-rose-950">${mShort} ${gap.day} (${gap.dowName}) — ${gap.brandName}</span>
+                ${typeBadge}
+              </div>
+              <div class="mt-1.5 flex flex-wrap gap-1.5">${missingBadges}</div>
+              <p class="text-xs text-slate-600 mt-1.5"><b>Root Cause:</b> ${gap.reason}</p>
+              ${actionBtn}
+            </div>
+          `;
+        }).join('');
+      }
+
+      if (DB.conflicts.soft.length === 0) {
+        softList.innerHTML = `
+          <div class="p-8 text-center text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
+            <div class="text-sm font-bold">No Soft Preference Warnings</div>
+            <p class="text-xs mt-1">All preferred weekly offs and workload thresholds are satisfied.</p>
+          </div>
+        `;
+      } else {
+        softList.innerHTML = DB.conflicts.soft.map(w => `
+          <div class="p-3 rounded-xl bg-amber-50/50 border border-amber-200 flex items-start gap-2.5">
+            <i class="fa-solid fa-circle-info text-amber-500 mt-0.5"></i>
+            <div class="text-xs text-amber-950 leading-relaxed">${w.message}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    /***************************************************************************
+     * 11. NO-CODE DATABASE & GRANULAR RULE CONFIGURATION CRUD (Sec 3A & 3B)
+     ***************************************************************************/
+    function syncProcessCalendarsWithBrandDefault(calValue) {
+      ['CS', 'ACC', 'NDR', 'RET'].forEach(p => {
+        const el = document.getElementById(`procCal${p}`);
+        if (el) el.value = calValue;
+      });
+    }
+
+    function renderDatabaseCRUDTab() {
+      document.getElementById('crudBrandCount').textContent = DB.brands.length;
+      document.getElementById('crudEmpCount').textContent = DB.employees.length;
+
+      // Populate Pod dropdowns dynamically
+      const podOptionsHTML = DB.pods.map(p => `<option value="${p.id}">${p.name} (Lead: ${p.leadName})</option>`).join('');
+      document.getElementById('brandPodSelect').innerHTML = podOptionsHTML;
+      document.getElementById('empPodSelect').innerHTML = podOptionsHTML;
+
+      // Populate Primary & Secondary Brand Dropdowns in Employee Form
+      const brandOpts = `<option value="">-- None --</option>` +
+        DB.brands.map(b => `<option value="${b.id}">${b.name} (${b.podId.replace('POD_', '')})</option>`).join('');
+      document.getElementById('empBrandSelect').innerHTML = brandOpts;
+      document.getElementById('empSecondBrandSelect').innerHTML = brandOpts;
+
+      // Render Brands Directory
+      document.getElementById('crudBrandsList').innerHTML = DB.brands.map(b => {
+        const procSummary = ['CS', 'ACC', 'NDR', 'RET']
+          .filter(p => b.processes[p]?.active)
+          .map(p => `${p}(${b.processes[p].minStaffWeekday}/${b.processes[p].calendar.split('_')[0]})`)
+          .join(', ');
+        return `
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs">
+            <div>
+              <div class="font-bold text-slate-900">${b.name} <span class="text-[10px] font-normal text-slate-500">(${b.id})</span></div>
+              <div class="text-[11px] text-slate-500">${b.podId.replace('POD_', 'Pod ')} | ${b.staffingModel} | ${procSummary}</div>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button onclick="loadBrandIntoForm('${b.id}')" class="px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold">Edit</button>
+              <button onclick="deleteBrand('${b.id}')" class="px-2 py-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Render Employees Directory
+      document.getElementById('crudEmployeesList').innerHTML = DB.employees.map(e => {
+        const assignSummary = e.assignments.map(a => `${a.brandId} (${a.processes.join(',')})`).join(' + ') || 'Pod Float/Lead';
+        return `
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs">
+            <div>
+              <div class="font-bold text-slate-900">${e.name} <span class="text-[10px] font-semibold text-indigo-600">[${e.role}]</span></div>
+              <div class="text-[11px] text-slate-500">${e.podId} | Assign: ${assignSummary} | Pref Off: ${DAY_NAMES_SHORT[e.preferredWeekOff]} | Leaves: ${(e.plannedLeaves || []).join(',') || 'None'}</div>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button onclick="loadEmployeeIntoForm('${e.id}')" class="px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold">Edit</button>
+              <button onclick="deleteEmployee('${e.id}')" class="px-2 py-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function addNewPodConfig(e) {
+      e.preventDefault();
+      const name = document.getElementById('newPodNameInput').value.trim();
+      const leadName = document.getElementById('newPodLeadInput').value.trim();
+      if (!name || !leadName) return;
+      const newPodId = `POD_${name.toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 10)}_${DB.pods.length + 1}`;
+      DB.pods.push({ id: newPodId, name, leadName, color: 'indigo' });
+      document.getElementById('newPodNameInput').value = '';
+      document.getElementById('newPodLeadInput').value = '';
+      updateKPIHeader();
+      renderDatabaseCRUDTab();
+      saveState();
+      showToast(`Added operational pod "${name}" (Lead: ${leadName})!`, 'indigo');
+    }
+
+    function loadBrandIntoForm(brandId) {
+      const b = DB.brands.find(x => x.id === brandId);
+      if (!b) return;
+      document.getElementById('editBrandId').value = b.id;
+      document.getElementById('brandNameInput').value = b.name;
+      document.getElementById('brandPodSelect').value = b.podId;
+      document.getElementById('brandTypeSelect').value = b.staffingModel;
+      document.getElementById('brandCalendarSelect').value = b.operatingCalendar;
+
+      ['CS', 'ACC', 'NDR', 'RET'].forEach(p => {
+        const rule = b.processes[p] || { active: false, calendar: b.operatingCalendar, minStaffWeekday: 0, minStaffSunday: 0 };
+        document.getElementById(`procCal${p}`).value = rule.calendar || b.operatingCalendar;
+        document.getElementById(`minStaff${p}`).value = rule.active ? (rule.minStaffWeekday || 1) : 0;
+        document.getElementById(`minSun${p}`).value = rule.active ? (rule.minStaffSunday ?? 0) : 0;
+      });
+    }
+
+    function resetBrandForm() {
+      document.getElementById('editBrandId').value = '';
+      document.getElementById('brandForm').reset();
+    }
+
+    function saveBrandConfig(e) {
+      e.preventDefault();
+      const editId = document.getElementById('editBrandId').value;
+      const name = document.getElementById('brandNameInput').value.trim();
+      const podId = document.getElementById('brandPodSelect').value;
+      const staffingModel = document.getElementById('brandTypeSelect').value;
+      const operatingCalendar = document.getElementById('brandCalendarSelect').value;
+
+      const processesObj = {};
+      ['CS', 'ACC', 'NDR', 'RET'].forEach(p => {
+        const wkMin = parseInt(document.getElementById(`minStaff${p}`).value, 10) || 0;
+        const sunMin = parseInt(document.getElementById(`minSun${p}`).value, 10) || 0;
+        const cal = document.getElementById(`procCal${p}`).value || operatingCalendar;
+        processesObj[p] = {
+          active: wkMin > 0,
+          calendar: cal,
+          minStaffWeekday: wkMin,
+          minStaffSunday: cal === 'MON_SAT_NO_HOLIDAYS' ? 0 : sunMin
+        };
+      });
+
+      if (editId) {
+        const existing = DB.brands.find(b => b.id === editId);
+        if (existing) {
+          existing.name = name;
+          existing.podId = podId;
+          existing.staffingModel = staffingModel;
+          existing.operatingCalendar = operatingCalendar;
+          existing.processes = processesObj;
+        }
+      } else {
+        const newId = `BR_${String(DB.brands.length + 1).padStart(2, '0')}`;
+        DB.brands.push({
+          id: newId,
+          name,
+          podId,
+          staffingModel,
+          operatingCalendar,
+          processes: processesObj
+        });
+      }
+
+      resetBrandForm();
+      validateEntireRoster();
+      saveState();
+      renderDatabaseCRUDTab();
+      showToast(`Saved brand "${name}" with granular process rules and re-validated monthly coverage!`, 'indigo');
+    }
+
+    function deleteBrand(brandId) {
+      DB.brands = DB.brands.filter(b => b.id !== brandId);
+      validateEntireRoster();
+      saveState();
+      renderDatabaseCRUDTab();
+      showToast(`Removed brand ${brandId}.`, 'slate');
+    }
+
+    function loadEmployeeIntoForm(empId) {
+      const emp = DB.employees.find(x => x.id === empId);
+      if (!emp) return;
+      document.getElementById('editEmpId').value = emp.id;
+      document.getElementById('empNameInput').value = emp.name;
+      document.getElementById('empRoleSelect').value = emp.role;
+      document.getElementById('empPodSelect').value = emp.podId;
+      document.getElementById('empWeekOffSelect').value = emp.preferredWeekOff;
+      document.getElementById('empLeavesInput').value = (emp.plannedLeaves || []).join(',');
+      document.getElementById('empCompOffsInput').value = (emp.compOffs || []).join(',');
+
+      if (emp.assignments.length > 0) {
+        document.getElementById('empBrandSelect').value = emp.assignments[0].brandId;
+        document.getElementById('empProcessesInput').value = emp.assignments[0].processes.join(',');
+      } else {
+        document.getElementById('empBrandSelect').value = '';
+        document.getElementById('empProcessesInput').value = '';
+      }
+
+      if (emp.assignments.length > 1) {
+        document.getElementById('empSecondBrandSelect').value = emp.assignments[1].brandId;
+        document.getElementById('empSecondProcessesInput').value = emp.assignments[1].processes.join(',');
+      } else {
+        document.getElementById('empSecondBrandSelect').value = '';
+        document.getElementById('empSecondProcessesInput').value = '';
+      }
+    }
+
+    function resetEmployeeForm() {
+      document.getElementById('editEmpId').value = '';
+      document.getElementById('employeeForm').reset();
+    }
+
+    function parseDayNumberList(str) {
+      if (!str) return [];
+      return str
+        .split(',')
+        .map(s => parseInt(s.trim(), 10))
+        .filter(n => !isNaN(n) && n >= 1 && n <= TOTAL_DAYS);
+    }
+
+    function saveEmployeeConfig(e) {
+      e.preventDefault();
+      const editId = document.getElementById('editEmpId').value;
+      const name = document.getElementById('empNameInput').value.trim();
+      const role = document.getElementById('empRoleSelect').value;
+      const podId = document.getElementById('empPodSelect').value;
+
+      const brandId1 = document.getElementById('empBrandSelect').value;
+      const procs1 = document.getElementById('empProcessesInput').value
+        .split(',')
+        .map(s => s.trim().toUpperCase())
+        .filter(s => ['CS', 'ACC', 'NDR', 'RET'].includes(s));
+
+      const brandId2 = document.getElementById('empSecondBrandSelect').value;
+      const procs2 = document.getElementById('empSecondProcessesInput').value
+        .split(',')
+        .map(s => s.trim().toUpperCase())
+        .filter(s => ['CS', 'ACC', 'NDR', 'RET'].includes(s));
+
+      const preferredWeekOff = parseInt(document.getElementById('empWeekOffSelect').value, 10) || 0;
+      const plannedLeaves = parseDayNumberList(document.getElementById('empLeavesInput').value);
+      const compOffs = parseDayNumberList(document.getElementById('empCompOffsInput').value);
+
+      const assignments = [];
+      if (brandId1) assignments.push({ brandId: brandId1, processes: procs1.length ? procs1 : ['CS'] });
+      if (brandId2 && brandId2 !== brandId1) assignments.push({ brandId: brandId2, processes: procs2.length ? procs2 : ['CS'] });
+
+      let targetEmpId = editId;
+      if (editId) {
+        const emp = DB.employees.find(x => x.id === editId);
+        if (emp) {
+          emp.name = name;
+          emp.role = role;
+          emp.podId = podId;
+          emp.preferredWeekOff = preferredWeekOff;
+          emp.assignments = assignments;
+          emp.plannedLeaves = plannedLeaves;
+          emp.compOffs = compOffs;
+        }
+      } else {
+        targetEmpId = `EMP_${String(DB.employees.length + 1).padStart(2, '0')}`;
+        const newEmp = {
+          id: targetEmpId,
+          name,
+          role,
+          podId,
+          preferredWeekOff,
+          assignments,
+          plannedLeaves,
+          compOffs
+        };
+        DB.employees.push(newEmp);
+      }
+
+      // Update just this employee's schedule for the month without wiping other employees' manual edits
+      const empObj = DB.employees.find(x => x.id === targetEmpId);
+      if (empObj) {
+        DB.roster[targetEmpId] = {};
+        for (let d = 1; d <= TOTAL_DAYS; d++) {
+          if (empObj.plannedLeaves.includes(d)) {
+            DB.roster[targetEmpId][d] = { status: 'LEAVE', backupBrandId: null, note: 'Planned Leave' };
+          } else if (empObj.compOffs.includes(d)) {
+            DB.roster[targetEmpId][d] = { status: 'COMP_OFF', backupBrandId: null, note: 'Approved Comp-Off' };
+          } else if (empObj.role !== 'POD_LEAD' && empObj.role !== 'POD_FLOAT' && !doesEmployeeHaveOperatingAssignmentOnDay(empObj, d)) {
+            DB.roster[targetEmpId][d] = {
+              status: DB.publicHolidays.includes(d) ? 'HOLIDAY' : 'WEEK_OFF',
+              backupBrandId: null,
+              note: 'Client Closed'
+            };
+          } else if (getDayOfWeek(d) === empObj.preferredWeekOff) {
+            DB.roster[targetEmpId][d] = { status: 'WEEK_OFF', backupBrandId: null, note: 'Preferred Weekly Off' };
+          } else {
+            DB.roster[targetEmpId][d] = { status: 'WORK', backupBrandId: null, note: 'Primary Brand Operations' };
+          }
+        }
+      }
+
+      resetEmployeeForm();
+      validateEntireRoster();
+      saveState();
+      renderDatabaseCRUDTab();
+      showToast(`Saved employee "${name}" and re-validated monthly roster!`, 'emerald');
+    }
+
+    function deleteEmployee(empId) {
+      DB.employees = DB.employees.filter(e => e.id !== empId);
+      delete DB.roster[empId];
+      validateEntireRoster();
+      saveState();
+      renderDatabaseCRUDTab();
+      showToast(`Removed employee ${empId}.`, 'slate');
+    }
+
+    /***************************************************************************
+     * 12. ACTIONS: AUTO-GENERATE, RESET, CSV EXPORT & README COPY
+     ***************************************************************************/
+    function generateMonthlyRoster() {
+      const autoBackups = document.getElementById('autoAssignBackupsToggle').checked;
+      runRosterEngine(autoBackups);
+      renderActiveStakeholderView();
+      showToast(
+        autoBackups
+          ? `Generated ${MONTH_CONFIGS[CURRENT_MONTH_KEY].label} Roster with automatic Pod Float backup allocation!`
+          : `Generated primary roster without Pod Float backups — inspect raw conflicts in Conflict Validator.`,
+        'indigo'
+      );
+    }
+
+    function resetToDefaultDataset() {
+      localStorage.removeItem(STORAGE_KEY);
+      DB = buildInitialDataset('2026-11');
+      const sel = document.getElementById('monthSelector');
+      if (sel) sel.value = '2026-11';
+      runRosterEngine(true);
+      selectedPodFilter = 'ALL';
+      selectedBrandFilter = 'ALL';
+      inspectedBrandId = 'BR_05';
+      renderStakeholderFilters();
+      renderActiveStakeholderView();
+      showToast('Reset database to initial 34-employee, 20-brand assessment dataset (100% SLA coverage).', 'slate');
+    }
+
+    function exportRosterCSV() {
+      const headers = ['Employee_ID', 'Employee_Name', 'Role', 'Pod_ID', 'Assigned_Brands_Processes', 'Preferred_WeekOff'];
+      const monthPrefix = CURRENT_MONTH_KEY;
+      for (let d = 1; d <= TOTAL_DAYS; d++) {
+        headers.push(`${monthPrefix}-${String(d).padStart(2, '0')} (${DAY_NAMES_SHORT[getDayOfWeek(d)]})`);
+      }
+
+      const rows = [headers.join(',')];
+      DB.employees.forEach(emp => {
+        const assignStr = emp.assignments.map(a => `${a.brandId}:${a.processes.join('/')}`).join('; ') || 'POD_FLOAT';
+        const row = [
+          emp.id,
+          `"${emp.name}"`,
+          emp.role,
+          emp.podId,
+          `"${assignStr}"`,
+          DAY_NAMES_SHORT[emp.preferredWeekOff]
+        ];
+        for (let d = 1; d <= TOTAL_DAYS; d++) {
+          const cell = DB.roster[emp.id]?.[d];
+          if (!cell) {
+            row.push('UNASSIGNED');
+          } else if (cell.status === 'BACKUP') {
+            row.push(`BACKUP(${cell.backupBrandId})`);
+          } else {
+            row.push(cell.status);
+          }
+        }
+        rows.push(row.join(','));
+      });
+
+      const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `DataStraw_Roster_${CURRENT_MONTH_KEY}_PowerBI_Excel.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast(`Downloaded DataStraw_Roster_${CURRENT_MONTH_KEY}_PowerBI_Excel.csv!`, 'emerald');
+    }
+
+    function copyReadmeToClipboard() {
+      const readmeText = `# DataStraw Smart Roster Management System
+
+## 1. Overview & Live Solution
+This application solves the multi-brand D2C operations scheduling, coverage validation, and mid-month conflict resolution problem for **34 employees** distributed across **20 D2C brands**, **4 processes (CS, ACC, NDR, RET)**, and **4 operational pods**.
+
+### Tech Stack
+- **Frontend & UI:** HTML5, Tailwind CSS, Vanilla JavaScript (ES6+ modular architecture)
+- **Data Store:** Relational in-memory database (\`pods\`, \`brands\`, \`brand_process_rules\`, \`employees\`, \`assignments\`, \`roster\`) persisted via \`localStorage\`
+- **Analytics & BI Integration:** 1-Click CSV Export structured for Excel PivotTables and Power BI dashboards
+
+---
+
+## 2. Tell Us How You Think (Section 8 Answers)
+
+### 1. How did you model employees, brands, processes, pods, and their relationships?
+I modeled the domain using a normalized relational schema:
+- **Pods (\`pods\`):** 4 operational pods (Alpha, Beta, Gamma, Delta), each overseen by a Pod Lead.
+- **Brands (\`brands\` & \`brand_process_rules\`):** 20 D2C brands split into **80% Single-Resource (16 brands)** and **20% Multi-Resource (4 brands)**. Each brand defines process-level operating calendars (\`365_DAYS\`, \`NO_PUBLIC_HOLIDAYS\`, \`MON_SAT_NO_HOLIDAYS\`) and daily minimum staffing (\`minStaffWeekday\`, \`minStaffSunday\`).
+- **Employees & Assignments (\`employees\` & \`employee_assignments\`):** 32 employees linked via a many-to-many assignment array specifying \`{ brandId, processes: ['CS','ACC','NDR','RET'] }\`, preferred weekly off day, planned leaves, and comp-offs.
+
+### 2. How does your system generate a roster and determine whether it satisfies the required constraints?
+The system uses a deterministic **Two-Pass Constraint Solver**:
+- **Pass 1 (Employee Calendar Pass):** Iterates through all 30 days of November 2026, locking in hard non-availability (\`LEAVE\`, \`COMP_OFF\`), client non-operating days (\`HOLIDAY\`, Sunday \`WEEK_OFF\` for Mon-Sat brands), and preferred weekly offs.
+- **Pass 2 (Coverage Validation & Pod Float Allocation):** Evaluates every active \`(brand, process, day)\` tuple against \`minStaff\`. If a gap is detected, it automatically assigns an available cross-trained Pod Float specialist or Pod Lead from the same Pod as \`BACKUP\`, or flags an explicit conflict.
+
+### 3. How did you handle the difference between single-resource brands and brands with multiple employees?
+- **Single-Resource Brands (80%):** 1 dedicated owner covers all active processes (\`CS\`, \`ACC\`, \`NDR\`). When that owner takes a weekly off or planned leave on a required working day (such as on a \`365_DAYS\` brand), the engine routes a Pod Float specialist or Pod Lead to cover the brand for that day.
+- **Multi-Resource Brands (20%):** 2–3 specialists handle distinct or overlapping processes (e.g., \`CS\` requiring \`minStaff: 2\` on weekdays and \`1\` on Sundays, while \`NDR\` runs \`MON_SAT_NO_HOLIDAYS\`). Weekly offs are staggered across specialists so coverage is maintained internally before pulling a Pod Floater.
+
+### 4. What happens when an employee managing all processes for a brand is unavailable on a required working day?
+The validator immediately flags a **Critical Coverage Gap** across \`CS, ACC, NDR\` for that brand on that date, identifies the root cause (e.g., *"Rohini Verma is on LEAVE"*), and provides a **1-Click Assign Backup** button recommending an available Pod Floater/Lead in the same Pod without regenerating the entire monthly schedule.
+
+### 5. How does your system handle conflicting requirements or insufficient staffing?
+The engine strictly separates **Mandatory Constraints** (client operating calendar, minimum process staffing, approved leaves) from **Soft Preferences** (preferred weekly off day, target monthly offs). Mandatory coverage overrides soft weekly-off preferences (logging an amber Soft Warning), and if Pod float capacity is exhausted, the unmet requirement is highlighted in red in both the Roster Matrix and Conflict Center.
+
+### 6. Which parts of the process did you automate, and which did you leave under human control? Why?
+Initial 30-day schedule generation, operating calendar compliance, real-time gap detection, and backup candidate ranking are automated. Mid-month emergency changes, client rule upgrades, and final conflict overrides remain human-in-the-loop (with 1-click resolution buttons) because operations managers hold qualitative context on client priority and employee wellbeing.
+
+### 7. If the company doubled its team and brand count, what would you change about your solution?
+I would move the persistent data layer from \`localStorage\` to **PostgreSQL** behind a Python FastAPI service, upgrade the two-pass heuristic solver to **Google OR-Tools (CP-SAT)** for global multi-pod optimization, and introduce Pod-level approval workflows.
+
+### 8. If you had one additional week to work on this, what would you improve first?
+I would integrate historical daily ticket/order volume per brand to dynamically adjust \`minStaff\` during D2C flash sales, and add automated Slack/email notifications whenever a published shift is modified.`;
+
+      const temp = document.createElement('textarea');
+      temp.value = readmeText;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+      showToast('Copied complete GitHub README.md (with all 8 Section 8 answers) to clipboard!', 'emerald');
+    }
+
+    function showToast(message, color = 'indigo') {
+      const container = document.getElementById('toastContainer');
+      const colorMap = {
+        emerald: 'bg-emerald-900 border-emerald-500 text-white',
+        rose: 'bg-rose-900 border-rose-500 text-white',
+        amber: 'bg-amber-900 border-amber-400 text-white',
+        indigo: 'bg-slate-900 border-indigo-500 text-white',
+        sky: 'bg-sky-900 border-sky-400 text-white',
+        purple: 'bg-purple-900 border-purple-400 text-white',
+        slate: 'bg-slate-800 border-slate-500 text-white'
+      };
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto max-w-md px-4 py-3 rounded-xl border-l-4 shadow-xl text-xs font-medium flex items-center gap-2.5 transition-all duration-300 ${colorMap[color] || colorMap.indigo}`;
+      toast.innerHTML = `<i class="fa-solid fa-circle-check text-sm"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 4200);
+    }
+
+    // Initialize Application on Window Load
+    window.onload = function () {
+      loadState();
+      renderStakeholderFilters();
+      renderActiveStakeholderView();
+    };
+  </script>
+</body>
+</html>
